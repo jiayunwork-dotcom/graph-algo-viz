@@ -166,7 +166,15 @@
     selectedNode = null;
     selectedEdge = null;
     animator.stop();
+    animator2.stop();
     rerender();
+    
+    requestAnimationFrame(() => {
+      canvasComponent?.fitView();
+      if (compareMode && canvasComponent2) {
+        canvasComponent2.fitView();
+      }
+    });
   }
 
   function handleExportJSON() {
@@ -394,7 +402,8 @@
 
   $: hasAlgorithm = playbackState !== 'idle' && animator.getAlgorithmType() !== null;
   $: hasAlgorithm2 = playbackState2 !== 'idle' && animator2.getAlgorithmType() !== null;
-  $: isRunning = playbackState === 'playing' || playbackState === 'paused' || playbackState === 'finished';
+  $: isRunning = playbackState === 'playing';
+  $: isRunning2 = playbackState2 === 'playing';
   $: totalSteps = animator.getTotalSteps();
   $: totalSteps2 = animator2.getTotalSteps();
   $: currentDescription = algorithmStep?.description || '';

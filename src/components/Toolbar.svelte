@@ -58,14 +58,6 @@
     const target = e.target as HTMLSelectElement;
     const val = target.value as AlgorithmType | '';
     selectedAlgorithm = val || null;
-    if (selectedAlgorithm) {
-      const info = ALGORITHM_INFO[selectedAlgorithm];
-      requiresStartNode = info.requiresStartNode;
-      requiresSinkNode = selectedAlgorithm === 'edmonds-karp';
-    } else {
-      requiresStartNode = false;
-      requiresSinkNode = false;
-    }
     dispatch('algorithmSelect', selectedAlgorithm);
   }
 
@@ -231,8 +223,8 @@
 
     <button 
       class="run-btn"
-      class:disabled={!canRunVal}
-      on:click={() => canRunVal && dispatch('runAlgorithm')}
+      disabled={!canRunVal}
+      on:click={() => dispatch('runAlgorithm')}
     >
       {isRunning ? '⏳ 运行中...' : '▶️ 运行算法'}
     </button>
@@ -333,8 +325,8 @@
 
     <button 
       class="run-btn"
-      class:disabled={!canRunBoth()}
-      on:click={() => canRunBoth() && dispatch('runBothAlgorithms')}
+      disabled={!canRunBothVal}
+      on:click={() => dispatch('runBothAlgorithms')}
     >
       ▶️ 运行对比
     </button>
@@ -504,14 +496,14 @@
     transform: translateY(-1px);
   }
 
-  .run-btn:active:not(.disabled) {
+  .run-btn:active:not([disabled]) {
     transform: translateY(0);
+    box-shadow: none;
   }
 
-  .run-btn.disabled {
+  .run-btn[disabled] {
     opacity: 0.5;
     cursor: not-allowed;
-    box-shadow: none;
   }
 
   .compare-toggle.active {
