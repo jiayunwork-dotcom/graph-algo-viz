@@ -18,6 +18,7 @@
   export let syncMode: boolean = true;
   export let canUndo: boolean = false;
   export let canRedo: boolean = false;
+  export let benchmarkRunning: boolean = false;
 
   $: _requiresStartNode = selectedAlgorithm ? ALGORITHM_INFO[selectedAlgorithm].requiresStartNode : false;
   $: _requiresSinkNode = selectedAlgorithm === 'edmonds-karp';
@@ -42,6 +43,7 @@
     toggleSyncMode: boolean;
     undo: void;
     redo: void;
+    openBenchmark: void;
   }>();
 
   const algorithmOptions: { type: AlgorithmType; category: string }[] = [
@@ -252,12 +254,20 @@
 
     <div class="divider"></div>
 
-    <button 
+    <button
       class="tool-btn compare-toggle {compareMode ? 'active' : ''}"
       title="算法对比模式"
       on:click={() => dispatch('toggleCompareMode', !compareMode)}
     >
       ⚖️ 对比
+    </button>
+
+    <button
+      class="tool-btn benchmark-toggle {benchmarkRunning ? 'active' : ''}"
+      title="算法性能基准测试"
+      on:click={() => dispatch('openBenchmark')}
+    >
+      📈 基准测试
     </button>
   </div>
 </div>
@@ -531,6 +541,25 @@
     background: #eef2ff;
     border-color: #818cf8;
     color: #4f46e5;
+  }
+
+  .benchmark-toggle {
+    background: linear-gradient(135deg, #faf5ff, #fdf4ff);
+    border-color: #d8b4fe;
+    color: #7c3aed;
+    font-weight: 600;
+  }
+
+  .benchmark-toggle:hover:not(:disabled) {
+    background: linear-gradient(135deg, #f3e8ff, #f5f3ff);
+    border-color: #c084fc;
+  }
+
+  .benchmark-toggle.active {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    border-color: #7c3aed;
+    color: white;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
   }
 
   .compare-toolbar {

@@ -4,6 +4,7 @@
   import GraphCanvas from './components/GraphCanvas.svelte';
   import ControlPanel from './components/ControlPanel.svelte';
   import Sidebar from './components/Sidebar.svelte';
+  import BenchmarkPanel from './components/BenchmarkPanel.svelte';
   import { Graph } from './lib/graph';
   import { HistoryManager } from './lib/history';
   import type { AlgorithmType, GraphMode, GraphNode, GraphEdge, NodeId, EdgeId, AlgorithmStep, VisualState, PresetGraph } from './lib/types';
@@ -51,6 +52,8 @@
   let sinkNodeId2: number | null = null;
   let compareMode: boolean = false;
   let syncMode: boolean = true;
+  let showBenchmark: boolean = false;
+  let benchmarkRunning: boolean = false;
 
   let selectedNode: NodeId | null = null;
   let selectedEdge: EdgeId | null = null;
@@ -105,6 +108,18 @@
 
   function handleToggleSyncMode(sync: boolean) {
     syncMode = sync;
+  }
+
+  function handleOpenBenchmark() {
+    showBenchmark = true;
+  }
+
+  function handleCloseBenchmark() {
+    showBenchmark = false;
+  }
+
+  function handleBenchmarkRunningChange(running: boolean) {
+    benchmarkRunning = running;
   }
 
   function recordHistory() {
@@ -564,6 +579,7 @@
     syncMode={syncMode}
     canUndo={canUndo}
     canRedo={canRedo}
+    benchmarkRunning={benchmarkRunning}
     on:algorithmSelect={(e) => handleAlgorithmSelect(e.detail)}
     on:graphModeChange={(e) => handleGraphModeChange(e.detail)}
     on:layoutChange={(e) => handleLayoutChange(e.detail)}
@@ -583,6 +599,7 @@
     on:toggleSyncMode={(e) => handleToggleSyncMode(e.detail)}
     on:undo={handleUndo}
     on:redo={handleRedo}
+    on:openBenchmark={handleOpenBenchmark}
   />
 
   <div class="main-content">
@@ -791,6 +808,14 @@
     on:stop2={handleStop2}
     on:jumpTo2={(e) => handleJumpTo2(e.detail)}
   />
+
+  {#if showBenchmark}
+    <BenchmarkPanel
+      isRunning={benchmarkRunning}
+      on:close={handleCloseBenchmark}
+      on:runningChange={(e) => handleBenchmarkRunningChange(e.detail)}
+    />
+  {/if}
 </div>
 
 <style>
