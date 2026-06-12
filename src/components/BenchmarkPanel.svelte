@@ -70,7 +70,8 @@
     'kruskal', 'prim', 'edmonds-karp', 'kahn', 'tarjan'
   ];
 
-  $: currentParams: GraphModelParams = (() => {
+  let currentParams: GraphModelParams;
+  $: currentParams = (() => {
     switch (graphModel) {
       case 'erdos-renyi': return { type: 'erdos-renyi', n: erN, p: erP };
       case 'watts-strogatz': return { type: 'watts-strogatz', n: wsN, k: wsK, beta: wsBeta };
@@ -371,12 +372,12 @@
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, W, H);
 
-    const data = aggregatedResults.filter(r => r.nodeCount === selectedBarNodeCount);
+    const data = aggregatedResults.filter(r => r.nodeCount === selectedBarNodeCountNum);
     if (data.length === 0) {
       ctx.fillStyle = '#94a3b8';
       ctx.font = '14px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(selectedBarNodeCount ? `节点数 ${selectedBarNodeCount} 暂无数据` : '请选择一个规模点', W / 2, H / 2);
+      ctx.fillText(selectedBarNodeCountNum ? `节点数 ${selectedBarNodeCountNum} 暂无数据` : '请选择一个规模点', W / 2, H / 2);
       return;
     }
 
@@ -449,7 +450,7 @@
     ctx.fillStyle = '#374151';
     ctx.font = '13px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`节点数: ${selectedBarNodeCount}`, W / 2, 20);
+    ctx.fillText(`节点数: ${selectedBarNodeCountNum}`, W / 2, 20);
 
     (barChartCanvas as any)._chartData = {
       padL, padR, padT, padB, chartW, chartH,
@@ -526,25 +527,10 @@
     const cd = (barChartCanvas as any)._chartData;
     if (!cd) return;
 
-    const rect = barChartCanvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-
-    const { data, groupWidth } = cd;
-    const idx = Math.floor((mx - cd.padL) / groupWidth);
-    if (idx >= 0 && idx < data.length) {
-      highlightedNodeCount = data[idx].nodeCount;
+    if (selectedBarNodeCountNum !== null) {
+      highlightedNodeCount = selectedBarNodeCountNum;
       requestAnimationFrame(() => {
         drawLineChart();
-      });
-    }
-  }
-
-  function handleSelectBarNodeCount() {
-    if (selectedBarNodeCount !== null) {
-      highlightedNodeCount = selectedBarNodeCount;
-      requestAnimationFrame(() => {
-        drawLineChart();
-        drawBarChart();
       });
     }
   }
@@ -602,7 +588,17 @@
     });
   }
 
-  $: if (selectedBarNodeCount !== null && barChartCanvas) {
+  $: selectedBarNodeCountNum = selectedBarNodeCount !== null ? Number(selectedBarNodeCount) : null;
+
+  $: if (selectedBarNodeCountNum !== null) {
+    highlightedNodeCount = selectedBarNodeCountNum;
+    if (barChartCanvas && lineChartCanvas) {
+      requestAnimationFrame(() => {
+        drawBarChart();
+        drawLineChart();
+      });
+    }
+  } else if (barChartCanvas) {
     requestAnimationFrame(() => {
       drawBarChart();
     });
@@ -793,7 +789,7 @@
           {#if aggregatedResults.length > 0}
             <div class="bar-selector">
               <span class="bar-selector-label">选择规模：</span>
-              <select bind:value={selectedBarNodeCount} on:change={handleSelectBarNodeCount}>
+              <select bind:value={selectedBarNodeCount}>
                 {#each [...new Set(aggregatedResults.map(r => r.nodeCount))].sort((a, b) => a - b) as nc}
                   <option value={nc}>{nc} 个节点</option>
                 {/each}
