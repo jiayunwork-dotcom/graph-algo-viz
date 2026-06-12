@@ -21,8 +21,25 @@
   let canvasComponent: GraphCanvas;
   let canvasComponent2: GraphCanvas;
 
-  $: canUndo = historyManager.canUndo() && !isRunning && !isRunning2;
-  $: canRedo = historyManager.canRedo() && !isRunning && !isRunning2;
+  let _hasAlgorithm: boolean = false;
+  let _hasAlgorithm2: boolean = false;
+  let _historyVersion: number = 0;
+  let canUndo: boolean = false;
+  let canRedo: boolean = false;
+
+  $: {
+    _historyVersion;
+    canUndo = historyManager.canUndo() && !isRunning && !isRunning2;
+  }
+
+  $: {
+    _historyVersion;
+    canRedo = historyManager.canRedo() && !isRunning && !isRunning2;
+  }
+
+  function bumpHistoryVersion() {
+    _historyVersion++;
+  }
 
   let selectedAlgorithm: AlgorithmType | null = null;
   let selectedAlgorithm2: AlgorithmType | null = null;
@@ -82,6 +99,7 @@
     if (!enabled) {
       animator2.stop();
       visualState2 = createEmptyVisualState();
+      _hasAlgorithm2 = false;
     }
   }
 
@@ -92,6 +110,7 @@
   function recordHistory() {
     if (!isRunning && !isRunning2) {
       historyManager.pushState(graph);
+      bumpHistoryVersion();
     }
   }
 
@@ -106,6 +125,9 @@
       selectedEdge = null;
       animator.stop();
       animator2.stop();
+      _hasAlgorithm = false;
+      _hasAlgorithm2 = false;
+      bumpHistoryVersion();
       rerender();
     }
   }
@@ -121,6 +143,9 @@
       selectedEdge = null;
       animator.stop();
       animator2.stop();
+      _hasAlgorithm = false;
+      _hasAlgorithm2 = false;
+      bumpHistoryVersion();
       rerender();
     }
   }
@@ -132,6 +157,8 @@
     if (success1 && success2) {
       animator.setCallbacks(onStepChange, onStateChange);
       animator2.setCallbacks(onStepChange2, onStateChange2);
+      _hasAlgorithm = true;
+      _hasAlgorithm2 = true;
       
       if (syncMode) {
         const steps1 = animator.getSteps();
@@ -211,6 +238,8 @@
     selectedEdge = null;
     animator.stop();
     animator2.stop();
+    _hasAlgorithm = false;
+    _hasAlgorithm2 = false;
     rerender();
     
     requestAnimationFrame(() => {
@@ -247,6 +276,9 @@
         startNodeId = null;
         sinkNodeId = null;
         animator.stop();
+        animator2.stop();
+        _hasAlgorithm = false;
+        _hasAlgorithm2 = false;
         rerender();
       } catch (err) {
         alert('导入失败：无效的 JSON 文件');
@@ -264,6 +296,9 @@
     selectedNode = null;
     selectedEdge = null;
     animator.stop();
+    animator2.stop();
+    _hasAlgorithm = false;
+    _hasAlgorithm2 = false;
     rerender();
   }
 
@@ -272,6 +307,7 @@
     const success = animator.prepareAlgorithm(selectedAlgorithm, graph, startNodeId ?? undefined, sinkNodeId ?? undefined);
     if (success) {
       animator.setCallbacks(onStepChange, onStateChange);
+      _hasAlgorithm = true;
       animator.play();
     } else {
       alert('算法准备失败，请检查参数');
@@ -347,7 +383,7 @@
   function handleStepForward() { animator.stepForward(); }
   function handleStepBackward() { animator.stepBackward(); }
   function handleReplay() { animator.replay(); }
-  function handleStop() { animator.stop(); }
+  function handleStop() { animator.stop(); _hasAlgorithm = false; }
   function handleSpeedChange(s: number) { speed = s; animator.setSpeed(s); if (animator2) animator2.setSpeed(s); }
   function handleJumpTo(idx: number) { animator.jumpToStep(idx); }
 
@@ -356,7 +392,7 @@
   function handleStepForward2() { animator2.stepForward(); }
   function handleStepBackward2() { animator2.stepBackward(); }
   function handleReplay2() { animator2.replay(); }
-  function handleStop2() { animator2.stop(); }
+  function handleStop2() { animator2.stop(); _hasAlgorithm2 = false; }
   function handleJumpTo2(idx: number) { animator2.jumpToStep(idx); }
 
   function handleNodeCreated() {
@@ -459,12 +495,12 @@
     graph = graph;
   }
 
-  $: hasAlgorithm = animator.getAlgorithmType() !== null && animator.getTotalSteps() > 0;
-  $: hasAlgorithm2 = animator2.getAlgorithmType() !== null && animator2.getTotalSteps() > 0;
+  $: hasAlgorithm = _hasAlgorithm;
+  $: hasAlgorithm2 = _hasAlgorithm2;
   $: isRunning = playbackState === 'playing';
   $: isRunning2 = playbackState2 === 'playing';
-  $: totalSteps = animator.getTotalSteps();
-  $: totalSteps2 = animator2.getTotalSteps();
+  $: totalSteps = _hasAlgorithm ? animator.getTotalSteps() : 0;
+  $: totalSteps2 = _hasAlgorithm2 ? animator2.getTotalSteps() : 0;
   $: currentDescription = algorithmStep?.description || '';
   $: currentDescription2 = algorithmStep2?.description || '';
   $: algorithmData = algorithmStep?.snapshot.data || {};
