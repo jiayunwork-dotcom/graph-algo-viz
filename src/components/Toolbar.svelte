@@ -10,14 +10,15 @@
   export let startNodeId: number | null = null;
   export let sinkNodeId: number | null = null;
   export let isRunning: boolean = false;
-  export let requiresStartNode: boolean = false;
-  export let requiresSinkNode: boolean = false;
   export let compareMode: boolean = false;
   export let selectedAlgorithm2: AlgorithmType | null = null;
   export let startNodeId2: number | null = null;
   export let sinkNodeId2: number | null = null;
   export let isRunning2: boolean = false;
   export let syncMode: boolean = true;
+
+  $: _requiresStartNode = selectedAlgorithm ? ALGORITHM_INFO[selectedAlgorithm].requiresStartNode : false;
+  $: _requiresSinkNode = selectedAlgorithm === 'edmonds-karp';
 
   const dispatch = createEventDispatcher<{
     algorithmSelect: AlgorithmType | null;
@@ -57,8 +58,7 @@
   function onAlgorithmChange(e: Event) {
     const target = e.target as HTMLSelectElement;
     const val = target.value as AlgorithmType | '';
-    selectedAlgorithm = val || null;
-    dispatch('algorithmSelect', selectedAlgorithm);
+    dispatch('algorithmSelect', val || null);
   }
 
   function onModeChange(e: Event) {
@@ -106,23 +106,20 @@
     dispatch('algorithmSelect2', val || null);
   }
 
-  function canRun(): boolean {
+  $: canRunVal = (() => {
     if (!selectedAlgorithm) return false;
     if (isRunning) return false;
-    if (requiresStartNode && startNodeId === null) return false;
+    if (_requiresStartNode && startNodeId === null) return false;
     return true;
-  }
+  })();
 
-  function canRunBoth(): boolean {
+  $: canRunBothVal = (() => {
     if (!selectedAlgorithm || !selectedAlgorithm2) return false;
     if (isRunning || isRunning2) return false;
     if (ALGORITHM_INFO[selectedAlgorithm].requiresStartNode && startNodeId === null) return false;
     if (ALGORITHM_INFO[selectedAlgorithm2].requiresStartNode && startNodeId2 === null) return false;
     return true;
-  }
-
-  $: canRunVal = canRun();
-  $: canRunBothVal = canRunBoth();
+  })();
 </script>
 
 <div class="toolbar">
@@ -199,7 +196,7 @@
       </select>
     </div>
 
-    {#if requiresStartNode}
+    {#if _requiresStartNode}
       <button 
         class="tool-btn {startNodeId !== null ? 'has-value' : ''}"
         title="选择起始节点"
@@ -210,7 +207,7 @@
       </button>
     {/if}
 
-    {#if requiresSinkNode}
+    {#if _requiresSinkNode}
       <button 
         class="tool-btn {sinkNodeId !== null ? 'has-value' : ''}"
         title="选择汇点节点"
@@ -257,7 +254,7 @@
           {/each}
         </select>
       </div>
-      {#if requiresStartNode}
+      {#if _requiresStartNode}
         <button 
           class="tool-btn {startNodeId !== null ? 'has-value' : ''}"
           disabled={isRunning}
@@ -266,7 +263,7 @@
           {startNodeId !== null ? `🚩 ${startNodeId}` : '🚩 起点'}
         </button>
       {/if}
-      {#if requiresSinkNode}
+      {#if _requiresSinkNode}
         <button 
           class="tool-btn {sinkNodeId !== null ? 'has-value' : ''}"
           disabled={isRunning}

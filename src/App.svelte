@@ -452,8 +452,6 @@
     startNodeId={startNodeId}
     sinkNodeId={sinkNodeId}
     isRunning={isRunning}
-    requiresStartNode={selectedAlgorithm ? ALGORITHM_INFO[selectedAlgorithm].requiresStartNode : false}
-    requiresSinkNode={selectedAlgorithm === 'edmonds-karp'}
     compareMode={compareMode}
     selectedAlgorithm2={selectedAlgorithm2}
     startNodeId2={startNodeId2}
