@@ -76,10 +76,10 @@ export function runKruskal(graph: Graph): AlgorithmStep[] {
     vs.nodeStates.clear();
     vs.edgeStates.clear();
   });
-  sb.addStep(`初始化 Kruskal：创建并查集，准备最小生成树（共需要 ${nodeIds.length - 1} 条边）`);
+  sb.addStep(`初始化 Kruskal 算法：创建并查集结构，构建最小生成树需要 ${nodeIds.length - 1} 条边`);
 
   if (edges.length === 0) {
-    sb.addStep('图中没有边，算法终止');
+    sb.addStep('图中没有边，无法生成树，算法终止');
     return sb.getSteps();
   }
 
@@ -96,7 +96,7 @@ export function runKruskal(graph: Graph): AlgorithmStep[] {
     data.currentEdgeIndex = -1;
     data.totalWeight = 0;
   });
-  sb.addStep(`将 ${edges.length} 条边按权重排序：${sortedEdges.map(e => `${e.source}-${e.target}(${e.weight})`).join(', ')}`);
+  sb.addStep(`将所有 ${edges.length} 条边按权重从小到大排序：${sortedEdges.map(e => `${e.source}-${e.target}(${e.weight})`).join(', ')}`);
 
   let idx = 0;
   for (const edge of sortedEdges) {
@@ -108,7 +108,7 @@ export function runKruskal(graph: Graph): AlgorithmStep[] {
       vs.edgeStates.set(edge.id, 'active');
       vs.highlightedEdge = edge.id;
     });
-    sb.addStep(`考察第 ${idx}/${sortedEdges.length} 条边：${u}-${v}，权重 = ${w}`);
+    sb.addStep(`按顺序考察第 ${idx}/${sortedEdges.length} 条边：连接节点 ${u} 和 ${v}，权重 = ${w}`);
 
     const ru = dsu.find(u);
     const rv = dsu.find(v);
@@ -127,10 +127,10 @@ export function runKruskal(graph: Graph): AlgorithmStep[] {
           vs.nodeStates.set(u, 'in-tree');
           vs.nodeStates.set(v, 'in-tree');
         });
-        sb.addStep(`✓ 加入 MST！合并集合 {${ru}} ∪ {${rv}}，当前总权重 = ${totalWeight}`);
+        sb.addStep(`✓ 将边 ${u}-${v} 加入最小生成树！合并集合 {${ru}} 和 {${rv}}，当前总权重 = ${totalWeight}`);
 
         if (mstEdges.length === nodeIds.length - 1) {
-          sb.addStep(`MST 边数达到 ${nodeIds.length - 1}，提前完成！`);
+          sb.addStep(`最小生成树边数已达到 ${nodeIds.length - 1}，所有节点连通，算法提前完成！`);
           break;
         }
       }
@@ -138,7 +138,7 @@ export function runKruskal(graph: Graph): AlgorithmStep[] {
       sb.setState((vs, data) => {
         vs.edgeStates.set(edge.id, 'visited');
       });
-      sb.addStep(`× 跳过！${u} 和 ${v} 已在同一集合中，会形成环`);
+      sb.addStep(`× 跳过边 ${u}-${v}！节点 ${u} 和 ${v} 已在同一连通分量中，加入会形成环`);
     }
   }
 
@@ -149,9 +149,9 @@ export function runKruskal(graph: Graph): AlgorithmStep[] {
   });
 
   if (mstEdges.length === nodeIds.length - 1) {
-    sb.addStep(`Kruskal 完成！最小生成树总权重 = ${totalWeight}，共 ${mstEdges.length} 条边`);
+    sb.addStep(`Kruskal 算法完成！最小生成树总权重 = ${totalWeight}，共包含 ${mstEdges.length} 条边`);
   } else {
-    sb.addStep(`Kruskal 完成！图非连通，生成了最小生成森林，总权重 = ${totalWeight}`);
+    sb.addStep(`Kruskal 算法完成！图非连通，生成了最小生成森林，总权重 = ${totalWeight}`);
   }
 
   return sb.getSteps();
@@ -172,7 +172,7 @@ export function runPrim(graph: Graph, startId: NodeId): AlgorithmStep[] {
     vs.nodeStates.clear();
     vs.edgeStates.clear();
   });
-  sb.addStep(`初始化 Prim：从节点 ${startId} 开始构建最小生成树`);
+  sb.addStep(`初始化 Prim 算法：从节点 ${startId} 出发，逐步扩展构建最小生成树`);
 
   if (!graph.getNode(startId)) {
     return sb.getSteps();
@@ -195,7 +195,7 @@ export function runPrim(graph: Graph, startId: NodeId): AlgorithmStep[] {
     data.candidateEdges = [];
     vs.nodeStates.set(startId, 'in-tree');
   });
-  sb.addStep(`初始：节点 ${startId} key = 0，其余节点 key = ∞`);
+  sb.addStep(`初始状态：从节点 ${startId} 出发，其 key 值 = 0，其余所有节点 key 值 = ∞`);
 
   for (let count = 0; count < V; count++) {
     let u: NodeId | null = null;
@@ -212,7 +212,7 @@ export function runPrim(graph: Graph, startId: NodeId): AlgorithmStep[] {
     });
 
     if (u === null) {
-      sb.addStep('剩余节点不可达，停止扩展');
+      sb.addStep('剩余节点从当前生成树不可达，停止扩展');
       break;
     }
 
@@ -227,7 +227,7 @@ export function runPrim(graph: Graph, startId: NodeId): AlgorithmStep[] {
       vs.nodeStates.set(u as NodeId, 'current');
       vs.highlightedNode = u as NodeId;
     });
-    sb.addStep(`选择节点 ${u}，key = ${minKey === Infinity ? '∞' : minKey}，加入 MST`);
+    sb.addStep(`从候选节点中选择 key 值最小的节点 ${u}，key = ${minKey === Infinity ? '∞' : minKey}，将其加入最小生成树`);
 
     const incident = graph.getIncidentEdges(u as NodeId);
     for (const edge of incident) {
@@ -256,9 +256,9 @@ export function runPrim(graph: Graph, startId: NodeId): AlgorithmStep[] {
           data.keyValues = Object.fromEntries(key);
           data.candidateEdges = [...getCandidateEdges(graph, inMST, key, nodeIds)];
         });
-        sb.addStep(`  更新节点 ${v} 的 key：${oldKey === Infinity ? '∞' : oldKey} → ${w}`);
+        sb.addStep(`通过节点 ${u} 更新节点 ${v} 的 key 值：${oldKey === Infinity ? '∞' : oldKey} → ${w}，前驱更新为节点 ${u}`);
       } else {
-        sb.addStep(`  边 ${u}-${v}：${w} ≥ ${oldKey === Infinity ? '∞' : oldKey}，不更新`);
+        sb.addStep(`检查边 ${u}-${v}（权重 = ${w}）：${w} ≥ 节点 ${v} 当前 key 值 ${oldKey === Infinity ? '∞' : oldKey}，不更新`);
       }
     }
 
@@ -283,7 +283,7 @@ export function runPrim(graph: Graph, startId: NodeId): AlgorithmStep[] {
     if (mstEdges.length > prevEdges) {
       const edge = graph.getEdge(mstEdges[mstEdges.length - 1]);
       if (edge) {
-        sb.addStep(`  将边 ${edge.source}-${edge.target} 加入 MST`);
+        sb.addStep(`将连接边 ${edge.source}-${edge.target} 加入最小生成树`);
       }
     }
 
@@ -300,7 +300,7 @@ export function runPrim(graph: Graph, startId: NodeId): AlgorithmStep[] {
   sb.setState((vs, data) => {
     data.result = { mstEdges: [...mstEdges], totalWeight, inMST: [...inMST] };
   });
-  sb.addStep(`Prim 完成！最小生成树总权重 = ${totalWeight}`);
+  sb.addStep(`Prim 算法完成！最小生成树总权重 = ${totalWeight}`);
 
   return sb.getSteps();
 }

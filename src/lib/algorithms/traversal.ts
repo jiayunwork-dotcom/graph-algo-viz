@@ -14,7 +14,7 @@ export function runBFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
     vs.nodeStates.clear();
     vs.edgeStates.clear();
   });
-  sb.addStep(`初始化：创建空队列和已访问集合，准备从节点 ${startId} 开始遍历`);
+  sb.addStep(`初始化：创建空队列和已访问集合，准备从节点 ${startId} 开始广度优先遍历`);
 
   if (!graph.getNode(startId)) {
     return sb.getSteps();
@@ -30,7 +30,7 @@ export function runBFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
     data.order = [...order];
     vs.nodeStates.set(startId, 'in-queue');
   });
-  sb.addStep(`将起始节点 ${startId} 加入队列`);
+  sb.addStep(`从节点 ${startId} 出发，将起始节点 ${startId} 加入待访问队列`);
 
   while (queue.length > 0) {
     const current = queue.shift()!;
@@ -42,7 +42,7 @@ export function runBFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
       vs.nodeStates.set(current, 'current');
       vs.highlightedNode = current;
     });
-    sb.addStep(`从队列取出节点 ${current}，作为当前处理节点`);
+    sb.addStep(`从队列取出节点 ${current}，作为当前正在访问的节点`);
 
     if (!visited.has(current)) {
       visited.add(current);
@@ -54,7 +54,7 @@ export function runBFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
         data.order = [...order];
         vs.nodeStates.set(current, 'visited');
       });
-      sb.addStep(`将节点 ${current} 标记为已访问`);
+      sb.addStep(`标记节点 ${current} 为已访问，加入遍历结果序列`);
 
       const neighbors = graph.getNeighbors(current);
       for (const neighbor of neighbors) {
@@ -72,7 +72,7 @@ export function runBFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
               vs.highlightedEdge = edge.id;
             }
           });
-          sb.addStep(`访问节点 ${current} 的邻居 ${neighbor.id}，未访问过，加入队列`);
+          sb.addStep(`从节点 ${current} 出发，发现未访问邻居节点 ${neighbor.id}，将其加入待访问队列`);
         } else if (edge) {
           sb.setState((vs, data) => {
             data.queue = [...queue];
@@ -81,7 +81,7 @@ export function runBFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
             vs.edgeStates.set(edge.id, 'visited');
             vs.highlightedEdge = edge.id;
           });
-          sb.addStep(`检查边 ${current}→${neighbor.id}，节点 ${neighbor.id} 已访问或已在队列中`);
+          sb.addStep(`检查边 ${current}→${neighbor.id}，节点 ${neighbor.id} 已访问或已在队列中，跳过`);
         }
       }
     }
@@ -102,7 +102,7 @@ export function runBFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
     data.order = [...order];
     data.result = order.join(' → ');
   });
-  sb.addStep(`BFS 完成！遍历顺序：${order.join(' → ')}`);
+  sb.addStep(`广度优先搜索完成！最终遍历顺序：${order.join(' → ')}`);
 
   return sb.getSteps();
 }
@@ -120,7 +120,7 @@ export function runDFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
     vs.nodeStates.clear();
     vs.edgeStates.clear();
   });
-  sb.addStep(`初始化：创建空栈和时间戳，准备从节点 ${startId} 开始 DFS`);
+  sb.addStep(`初始化：创建空栈和时间戳记录，准备从节点 ${startId} 开始深度优先搜索`);
 
   if (!graph.getNode(startId)) {
     return sb.getSteps();
@@ -151,7 +151,7 @@ export function runDFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
         if (edge) vs.edgeStates.set(edge.id, 'active');
       }
     });
-    sb.addStep(`进入节点 ${nodeId}，发现时间戳 = ${time}，压入栈`);
+    sb.addStep(`从节点 ${parentId ?? '起点'} 出发，进入节点 ${nodeId}，发现时间戳 = ${time}，将其压入递归栈`);
 
     visited.add(nodeId);
     order.push(nodeId);
@@ -164,7 +164,7 @@ export function runDFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
       data.finishTime = Object.fromEntries(finishTime);
       vs.nodeStates.set(nodeId, 'current');
     });
-    sb.addStep(`将节点 ${nodeId} 标记为已访问，开始探索其邻居`);
+    sb.addStep(`标记节点 ${nodeId} 为已访问，开始探索其所有邻居节点`);
 
     const neighbors = graph.getNeighbors(nodeId);
     for (const neighbor of neighbors) {
@@ -176,7 +176,7 @@ export function runDFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
             vs.highlightedEdge = edge.id;
           }
         });
-        sb.addStep(`发现未访问的邻居节点 ${neighbor.id}，递归深入`);
+        sb.addStep(`从节点 ${nodeId} 出发，发现未访问邻居节点 ${neighbor.id}，递归深入继续搜索`);
         
         dfs(neighbor.id, nodeId);
 
@@ -189,13 +189,13 @@ export function runDFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
           vs.nodeStates.set(nodeId, 'current');
           vs.highlightedNode = nodeId;
         });
-        sb.addStep(`回溯：从 ${neighbor.id} 返回到节点 ${nodeId}`);
+        sb.addStep(`回溯：从节点 ${neighbor.id} 返回到节点 ${nodeId}，继续探索其他邻居`);
       } else if (edge) {
         sb.setState((vs, data) => {
           vs.edgeStates.set(edge.id, 'visited');
           vs.highlightedEdge = edge.id;
         });
-        sb.addStep(`检查边 ${nodeId}→${neighbor.id}，节点 ${neighbor.id} 已访问，跳过`);
+        sb.addStep(`检查边 ${nodeId}→${neighbor.id}，节点 ${neighbor.id} 已访问过，跳过不处理`);
       }
     }
 
@@ -212,7 +212,7 @@ export function runDFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
       vs.nodeStates.set(nodeId, 'finished');
       vs.highlightedNode = null;
     });
-    sb.addStep(`节点 ${nodeId} 所有邻居探索完毕，完成时间戳 = ${time}，弹出栈`);
+    sb.addStep(`节点 ${nodeId} 的所有邻居已探索完毕，完成时间戳 = ${time}，从递归栈弹出`);
   }
 
   dfs(startId, null);
@@ -225,7 +225,7 @@ export function runDFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
         data.visited = [...visited];
         data.order = [...order];
       });
-      sb.addStep(`发现未访问的节点 ${node.id}（另一连通分量），继续 DFS`);
+      sb.addStep(`发现未访问的节点 ${node.id}（属于另一连通分量），从该节点继续深度优先搜索`);
       dfs(node.id, null);
     }
   }
@@ -238,7 +238,7 @@ export function runDFS(graph: Graph, startId: NodeId): AlgorithmStep[] {
     data.finishTime = Object.fromEntries(finishTime);
     data.result = order.join(' → ');
   });
-  sb.addStep(`DFS 完成！遍历顺序：${order.join(' → ')}`);
+  sb.addStep(`深度优先搜索完成！最终遍历顺序：${order.join(' → ')}`);
 
   return sb.getSteps();
 }

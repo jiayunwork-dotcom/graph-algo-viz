@@ -16,6 +16,8 @@
   export let sinkNodeId2: number | null = null;
   export let isRunning2: boolean = false;
   export let syncMode: boolean = true;
+  export let canUndo: boolean = false;
+  export let canRedo: boolean = false;
 
   $: _requiresStartNode = selectedAlgorithm ? ALGORITHM_INFO[selectedAlgorithm].requiresStartNode : false;
   $: _requiresSinkNode = selectedAlgorithm === 'edmonds-karp';
@@ -38,6 +40,8 @@
     selectSinkNode2: void;
     runBothAlgorithms: void;
     toggleSyncMode: boolean;
+    undo: void;
+    redo: void;
   }>();
 
   const algorithmOptions: { type: AlgorithmType; category: string }[] = [
@@ -176,8 +180,28 @@
       📤 导出
     </button>
 
-    <button class="tool-btn icon-btn danger" title="清空图" on:click={() => dispatch('clearGraph')}>
+    <button class="tool-btn icon-btn danger" title="清空图" on:click={() => dispatch('clearGraph')} disabled={isRunning || isRunning2}>
       🗑️ 清空
+    </button>
+
+    <div class="divider"></div>
+
+    <button 
+      class="tool-btn icon-btn" 
+      title="撤销 (Ctrl+Z)" 
+      on:click={() => dispatch('undo')}
+      disabled={!canUndo || isRunning || isRunning2}
+    >
+      ↩️ 撤销
+    </button>
+
+    <button 
+      class="tool-btn icon-btn" 
+      title="重做 (Ctrl+Shift+Z)" 
+      on:click={() => dispatch('redo')}
+      disabled={!canRedo || isRunning || isRunning2}
+    >
+      ↪️ 重做
     </button>
   </div>
 

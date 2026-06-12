@@ -19,7 +19,7 @@ export function runDijkstra(graph: Graph, startId: NodeId): AlgorithmStep[] {
     vs.nodeStates.clear();
     vs.edgeStates.clear();
   });
-  sb.addStep(`初始化 Dijkstra：设置起点 ${startId} 距离为 0，其余节点距离为 ∞`);
+  sb.addStep(`初始化 Dijkstra 算法：设置起点 ${startId} 距离为 0，其余所有节点距离初始化为无穷大 ∞`);
 
   if (!graph.getNode(startId)) {
     return sb.getSteps();
@@ -43,7 +43,7 @@ export function runDijkstra(graph: Graph, startId: NodeId): AlgorithmStep[] {
     data.iteration = 0;
     vs.nodeStates.set(startId, 'in-queue');
   });
-  sb.addStep(`起点 ${startId} 距离 = 0，其余节点距离 = ∞`);
+  sb.addStep(`从节点 ${startId} 出发，起点距离初始化为 0，其他节点距离为 ∞，前驱节点均为空`);
 
   let iteration = 0;
   while (unvisited.size > 0) {
@@ -67,7 +67,7 @@ export function runDijkstra(graph: Graph, startId: NodeId): AlgorithmStep[] {
         data.iteration = iteration;
       });
       const unreachable = [...unvisited].join(', ');
-      sb.addStep(`剩余节点 [${unreachable}] 不可达，算法结束`);
+      sb.addStep(`剩余节点 [${unreachable}] 从起点不可达，算法提前终止`);
       break;
     }
 
@@ -82,7 +82,7 @@ export function runDijkstra(graph: Graph, startId: NodeId): AlgorithmStep[] {
       vs.nodeStates.set(u as NodeId, 'current');
       vs.highlightedNode = u as NodeId;
     });
-    sb.addStep(`第 ${iteration} 轮：选择最小距离节点 ${u}，距离 = ${minDist}`);
+    sb.addStep(`第 ${iteration} 轮：从待处理节点中选择距离最小的节点 ${u}，当前距离 = ${minDist}`);
 
     const outgoing = graph.getOutgoingEdges(u as NodeId);
     const incident = graph.getIncidentEdges(u as NodeId);
@@ -100,7 +100,7 @@ export function runDijkstra(graph: Graph, startId: NodeId): AlgorithmStep[] {
         vs.edgeStates.set(edge.id, 'active');
         vs.highlightedEdge = edge.id;
       });
-      sb.addStep(`检查边 ${u}→${v}，权重 = ${edge.weight}，尝试松弛：新距离 = ${dist.get(u as NodeId)!} + ${edge.weight} = ${newDist}`);
+      sb.addStep(`从节点 ${u} 出发，检查边 ${u}→${v}（权重 = ${edge.weight}），尝试松弛：新距离 = ${dist.get(u as NodeId)!} + ${edge.weight} = ${newDist}`);
 
       if (newDist < oldDist) {
         dist.set(v, newDist);
@@ -112,12 +112,12 @@ export function runDijkstra(graph: Graph, startId: NodeId): AlgorithmStep[] {
           vs.edgeStates.set(edge.id, 'relaxed');
           vs.nodeStates.set(v, 'in-queue');
         });
-        sb.addStep(`✓ 松弛成功！节点 ${v} 距离更新：${oldDist === INF ? '∞' : oldDist} → ${newDist}，前驱 = ${u}`);
+        sb.addStep(`节点 ${v} 的距离通过节点 ${u} 松弛为 ${newDist}，小于原距离 ${oldDist === INF ? '∞' : oldDist}，更新前驱为节点 ${u}`);
       } else {
         sb.setState((vs, data) => {
           vs.edgeStates.set(edge.id, 'visited');
         });
-        sb.addStep(`× 不更新：新距离 ${newDist} ≥ 当前距离 ${oldDist === INF ? '∞' : oldDist}`);
+        sb.addStep(`不更新：新距离 ${newDist} ≥ 当前节点 ${v} 的距离 ${oldDist === INF ? '∞' : oldDist}，保持不变`);
       }
     }
 
@@ -151,7 +151,7 @@ export function runDijkstra(graph: Graph, startId: NodeId): AlgorithmStep[] {
   });
   
   const distStr = nodeIds.map(id => `${id}:${dist.get(id) === INF ? '∞' : dist.get(id)}`).join(', ');
-  sb.addStep(`Dijkstra 完成！从 ${startId} 出发的最短距离：{ ${distStr} }`);
+  sb.addStep(`Dijkstra 算法完成！从节点 ${startId} 出发到各节点的最短距离：{ ${distStr} }`);
 
   return sb.getSteps();
 }
@@ -172,7 +172,7 @@ export function runBellmanFord(graph: Graph, startId: NodeId): AlgorithmStep[] {
     vs.nodeStates.clear();
     vs.edgeStates.clear();
   });
-  sb.addStep(`初始化 Bellman-Ford：起点 ${startId} 距离 = 0，其余 = ∞，共需 ${V - 1} 轮松弛`);
+  sb.addStep(`初始化 Bellman-Ford 算法：从节点 ${startId} 出发，起点距离 = 0，其余节点距离 = ∞，共需 ${V - 1} 轮松弛操作`);
 
   if (!graph.getNode(startId)) {
     return sb.getSteps();
@@ -193,7 +193,7 @@ export function runBellmanFord(graph: Graph, startId: NodeId): AlgorithmStep[] {
     data.iteration = 0;
     vs.nodeStates.set(startId, 'in-queue');
   });
-  sb.addStep(`初始距离表就绪`);
+  sb.addStep(`初始距离表就绪：节点 ${startId} 距离为 0，其他节点为无穷大 ∞`);
 
   for (let i = 1; i <= V - 1; i++) {
     let updated = false;
@@ -217,14 +217,14 @@ export function runBellmanFord(graph: Graph, startId: NodeId): AlgorithmStep[] {
         sb.setState((vs, data) => {
           vs.edgeStates.set(edge.id, 'visited');
         });
-        sb.addStep(`边 ${u}→${v} (w=${w})：节点 ${u} 距离 ∞，跳过`);
+        sb.addStep(`检查边 ${u}→${v}（权重 = ${w}）：节点 ${u} 距离为 ∞，无法通过该边松弛，跳过`);
         continue;
       }
 
       const newDist = du + w;
       const oldDist = dist.get(v)!;
 
-      sb.addStep(`边 ${u}→${v} (w=${w})：尝试松弛 ${du} + ${w} = ${newDist} vs ${oldDist === INF ? '∞' : oldDist}`);
+      sb.addStep(`检查边 ${u}→${v}（权重 = ${w}）：尝试松弛，新距离 = ${du} + ${w} = ${newDist}，原距离 = ${oldDist === INF ? '∞' : oldDist}`);
 
       if (newDist < oldDist) {
         dist.set(v, newDist);
@@ -237,12 +237,12 @@ export function runBellmanFord(graph: Graph, startId: NodeId): AlgorithmStep[] {
           vs.edgeStates.set(edge.id, 'relaxed');
           vs.nodeStates.set(v, 'current');
         });
-        sb.addStep(`✓ 节点 ${v} 距离更新：${oldDist === INF ? '∞' : oldDist} → ${newDist}`);
+        sb.addStep(`节点 ${v} 的距离通过节点 ${u} 松弛为 ${newDist}，小于原距离 ${oldDist === INF ? '∞' : oldDist}，更新前驱为节点 ${u}`);
       } else {
         sb.setState((vs, data) => {
           vs.edgeStates.set(edge.id, 'visited');
         });
-        sb.addStep(`× 不更新`);
+        sb.addStep(`不更新：新距离 ${newDist} ≥ 节点 ${v} 当前距离 ${oldDist === INF ? '∞' : oldDist}，保持不变`);
       }
     }
 
@@ -251,7 +251,7 @@ export function runBellmanFord(graph: Graph, startId: NodeId): AlgorithmStep[] {
     });
 
     if (!updated) {
-      sb.addStep(`第 ${i} 轮没有更新，提前终止！`);
+      sb.addStep(`第 ${i} 轮松弛后没有任何距离更新，说明已达到最优解，算法提前终止！`);
       break;
     }
   }
@@ -259,7 +259,7 @@ export function runBellmanFord(graph: Graph, startId: NodeId): AlgorithmStep[] {
   sb.setState((vs, data) => {
     data.iteration = V;
   });
-  sb.addStep(`━━━ 第 ${V} 轮：检测负权环 ━━━`);
+  sb.addStep(`━━━ 第 ${V} 轮：检测图中是否存在负权环 ━━━`);
 
   const negativeCycleEdges: EdgeId[] = [];
   for (const edge of edges) {
@@ -274,7 +274,7 @@ export function runBellmanFord(graph: Graph, startId: NodeId): AlgorithmStep[] {
         data.negativeCycleEdges = [...negativeCycleEdges];
         data.hasNegativeCycle = true;
       });
-      sb.addStep(`⚠ 边 ${u}→${v} (w=${w}) 仍可松弛！检测到负权环：${du} + ${w} < ${dist.get(v)}`);
+      sb.addStep(`⚠ 检测到负权环！边 ${u}→${v}（权重 = ${w}）在第 ${V} 轮仍可松弛：${du} + ${w} < ${dist.get(v)}`);
     }
   }
 
@@ -299,9 +299,9 @@ export function runBellmanFord(graph: Graph, startId: NodeId): AlgorithmStep[] {
       });
     });
     const distStr = nodeIds.map(id => `${id}:${dist.get(id) === INF ? '∞' : dist.get(id)}`).join(', ');
-    sb.addStep(`✓ Bellman-Ford 完成！无负权环，距离：{ ${distStr} }`);
+    sb.addStep(`✓ Bellman-Ford 算法完成！图中无负权环，从节点 ${startId} 出发的最短距离：{ ${distStr} }`);
   } else {
-    sb.addStep(`✗ Bellman-Ford 完成！图中存在负权环，最短路径无意义`);
+    sb.addStep(`✗ Bellman-Ford 算法完成！检测到图中存在负权环，最短路径无意义`);
   }
 
   return sb.getSteps();
@@ -375,7 +375,7 @@ export function runFloydWarshall(graph: Graph): AlgorithmStep[] {
     vs.nodeStates.clear();
     vs.edgeStates.clear();
   });
-  sb.addStep(`初始化 Floyd-Warshall：距离矩阵 D⁻¹，D[i][j] = 直接边权（无边则 ∞）`);
+  sb.addStep(`初始化 Floyd-Warshall 算法：构建初始距离矩阵 D⁻¹，D[i][j] = 节点 ${'i'} 到 ${'j'} 的直接边权（无边则为无穷大 ∞）`);
 
   for (let k = 0; k < V; k++) {
     const kNode = nodeIds[k];
@@ -386,7 +386,7 @@ export function runFloydWarshall(graph: Graph): AlgorithmStep[] {
       vs.nodeStates.set(kNode, 'current');
       vs.highlightedNode = kNode;
     });
-    sb.addStep(`━━━ 中间节点 k = ${kNode}（第 ${k + 1}/${V} 轮）━━━`);
+    sb.addStep(`━━━ 以节点 ${kNode} 作为中间中转节点（第 ${k + 1}/${V} 轮）━━━`);
 
     for (let i = 0; i < V; i++) {
       for (let j = 0; j < V; j++) {
@@ -416,7 +416,7 @@ export function runFloydWarshall(graph: Graph): AlgorithmStep[] {
         }
 
         const candidate = dik + dkj;
-        sb.addStep(`  比较: D[${iNode}][${jNode}] = ${dij === INF ? '∞' : dij}  vs  D[${iNode}][${kNode}] + D[${kNode}][${jNode}] = ${dik} + ${dkj} = ${candidate}`);
+        sb.addStep(`比较节点 ${iNode} 到 ${jNode} 的路径：原距离 = ${dij === INF ? '∞' : dij}，经节点 ${kNode} 中转的距离 = ${dik} + ${dkj} = ${candidate}`);
 
         if (candidate < dij) {
           dist[i][j] = candidate;
@@ -431,9 +431,9 @@ export function runFloydWarshall(graph: Graph): AlgorithmStep[] {
             if (edgeIK) vs.edgeStates.set(edgeIK.id, 'active');
             if (edgeKJ) vs.edgeStates.set(edgeKJ.id, 'active');
           });
-          sb.addStep(`  ✓ 更新 D[${iNode}][${jNode}] = ${candidate}（经 ${kNode} 中转更短）`);
+          sb.addStep(`✓ 更新！从节点 ${iNode} 到 ${jNode} 经节点 ${kNode} 中转更短，距离更新为 ${candidate}，前驱指向节点 ${kNode}`);
         } else {
-          sb.addStep(`  × 不更新`);
+          sb.addStep(`× 不更新：经节点 ${kNode} 中转的距离 ${candidate} ≥ 原距离 ${dij === INF ? '∞' : dij}，保持原值不变`);
         }
 
         sb.setState((vs, data) => {
@@ -467,7 +467,7 @@ export function runFloydWarshall(graph: Graph): AlgorithmStep[] {
     
     nodeIds.forEach(id => vs.nodeStates.set(id, 'in-tree'));
   });
-  sb.addStep(`Floyd-Warshall 完成！任意两点最短路径矩阵已计算完毕`);
+  sb.addStep(`Floyd-Warshall 算法完成！任意两点之间的最短路径矩阵已全部计算完毕`);
 
   return sb.getSteps();
 }

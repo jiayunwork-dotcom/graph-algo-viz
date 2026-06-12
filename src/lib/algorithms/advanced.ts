@@ -30,7 +30,7 @@ export function runEdmondsKarp(graph: Graph, sourceId: NodeId, sinkId?: NodeId):
     actualSink = candidates[candidates.length - 1] || sourceId;
   }
 
-  sb.addStep(`初始化 Edmonds-Karp：源点 S = ${sourceId}，汇点 T = ${actualSink}`);
+  sb.addStep(`初始化 Edmonds-Karp 最大流算法：源点 S = ${sourceId}，汇点 T = ${actualSink}`);
 
   if (!graph.getNode(sourceId) || !graph.getNode(actualSink)) {
     return sb.getSteps();
@@ -105,7 +105,7 @@ export function runEdmondsKarp(graph: Graph, sourceId: NodeId, sinkId?: NodeId):
     data.edgeFlows = flowData;
     data.edgeCapacities = Object.fromEntries(capacityMap);
   });
-  sb.addStep(`初始状态：所有边流量 = 0，容量已就绪`);
+  sb.addStep(`初始状态：从源点 ${sourceId} 出发，所有边流量初始化为 0，各边容量已就绪`);
 
   let maxFlow = 0;
   let iteration = 0;
@@ -142,8 +142,8 @@ export function runEdmondsKarp(graph: Graph, sourceId: NodeId, sinkId?: NodeId):
         data.minCutEdges = cutEdges;
         data.result = { maxFlow, minCut: { S: [...reachable], T: notReachable, edges: cutEdges } };
       });
-      sb.addStep(`━━━ 残余网络中不再存在增广路径，算法终止 ━━━`);
-      sb.addStep(`✓ 最大流 = ${maxFlow}，最小割：S={${[...bfsReachable(sourceId, nodeIds, flowMap, capacityMap, graph)].join(',')}} / T={${nodeIds.filter(id => !bfsReachable(sourceId, nodeIds, flowMap, capacityMap, graph).has(id)).join(',')}}`);
+      sb.addStep(`━━━ 残余网络中从源点 ${sourceId} 到汇点 ${actualSink} 不再存在增广路径，算法终止 ━━━`);
+      sb.addStep(`✓ Edmonds-Karp 完成！最大流 = ${maxFlow}，最小割：S={${[...bfsReachable(sourceId, nodeIds, flowMap, capacityMap, graph)].join(',')}} / T={${nodeIds.filter(id => !bfsReachable(sourceId, nodeIds, flowMap, capacityMap, graph).has(id)).join(',')}}`);
       break;
     }
 
@@ -151,7 +151,7 @@ export function runEdmondsKarp(graph: Graph, sourceId: NodeId, sinkId?: NodeId):
       data.iteration = iteration;
       data.augmentingPath = [...path];
     });
-    sb.addStep(`━━━ 第 ${iteration} 轮：找到增广路径 ${path.join(' → ')} ━━━`);
+    sb.addStep(`━━━ 第 ${iteration} 轮：通过 BFS 找到从源点 ${sourceId} 到汇点 ${actualSink} 的增广路径 ${path.join(' → ')} ━━━`);
 
     let minCapacity = Infinity;
     const pathEdges: { u: NodeId; v: NodeId; res: { id: EdgeId; capacity: number; isReverse: boolean } }[] = [];
@@ -164,10 +164,6 @@ export function runEdmondsKarp(graph: Graph, sourceId: NodeId, sinkId?: NodeId):
       if (res.capacity < minCapacity) {
         minCapacity = res.capacity;
       }
-
-      if (!res.isReverse) {
-        // Marked in setState below
-      }
     }
 
     sb.setState((vs, data) => {
@@ -178,7 +174,7 @@ export function runEdmondsKarp(graph: Graph, sourceId: NodeId, sinkId?: NodeId):
       });
       path.forEach(id => vs.nodeStates.set(id, 'current'));
     });
-    sb.addStep(`路径上最小残余容量 = ${minCapacity}，将推送 ${minCapacity} 单位流量`);
+    sb.addStep(`路径上各边的最小残余容量 = ${minCapacity}，将沿该路径推送 ${minCapacity} 单位流量`);
 
     for (const pe of pathEdges) {
       if (!pe.res.isReverse) {
@@ -206,7 +202,7 @@ export function runEdmondsKarp(graph: Graph, sourceId: NodeId, sinkId?: NodeId):
         }
       });
     });
-    sb.addStep(`✓ 推送完成！路径上每条边流量 +${minCapacity}，当前总流量 = ${maxFlow}`);
+    sb.addStep(`✓ 流量推送完成！路径上每条边流量增加 ${minCapacity}，从源点 ${sourceId} 出发的当前总流量 = ${maxFlow}`);
 
     sb.setState((vs, data) => {
       path.forEach(id => vs.nodeStates.set(id, 'in-tree'));
@@ -257,7 +253,7 @@ export function runKahn(graph: Graph): AlgorithmStep[] {
   const nodeIds = nodes.map(n => n.id).sort((a, b) => a - b);
 
   if (!graph.settings.isDirected) {
-    sb.addStep('Kahn 拓扑排序需要有向图（DAG）。当前图为无向图，可能无法得到有效结果。');
+    sb.addStep('提示：Kahn 拓扑排序需要有向无环图（DAG）。当前图为无向图，可能无法得到有效结果。');
   }
 
   sb.setState((vs, data) => {
@@ -270,7 +266,7 @@ export function runKahn(graph: Graph): AlgorithmStep[] {
     vs.nodeStates.clear();
     vs.edgeStates.clear();
   });
-  sb.addStep(`初始化 Kahn 算法：计算所有节点的入度`);
+  sb.addStep(`初始化 Kahn 拓扑排序算法：准备计算所有节点的入度`);
 
   const inDegree = new Map<NodeId, number>();
   nodeIds.forEach(id => inDegree.set(id, 0));
@@ -295,7 +291,7 @@ export function runKahn(graph: Graph): AlgorithmStep[] {
     data.result = [];
   });
   const degStr = nodeIds.map(id => `${id}:${inDegree.get(id)}`).join(', ');
-  sb.addStep(`初始入度：{ ${degStr} }`);
+  sb.addStep(`初始化 Kahn 拓扑排序算法，计算各节点初始入度：{ ${degStr} }`);
 
   const queue: NodeId[] = [];
   nodeIds.forEach(id => {
@@ -310,7 +306,7 @@ export function runKahn(graph: Graph): AlgorithmStep[] {
   sb.setState((vs, data) => {
     data.queue = [...queue];
   });
-  sb.addStep(`入度为 0 的节点入队：[${queue.join(', ')}]`);
+  sb.addStep(`将所有入度为 0 的节点加入初始处理队列：[${queue.join(', ')}]`);
 
   const result: NodeId[] = [];
   while (queue.length > 0) {
@@ -324,7 +320,7 @@ export function runKahn(graph: Graph): AlgorithmStep[] {
       vs.nodeStates.set(u, 'current');
       vs.highlightedNode = u;
     });
-    sb.addStep(`从队列取出节点 ${u}，加入结果序列 → [${result.join(', ')}]`);
+    sb.addStep(`从队列取出节点 ${u} 进行处理，将其加入拓扑排序结果序列 → [${result.join(', ')}]`);
 
     const outgoing = graph.getOutgoingEdges(u);
     for (const edge of outgoing) {
@@ -335,7 +331,7 @@ export function runKahn(graph: Graph): AlgorithmStep[] {
         vs.edgeStates.set(edge.id, 'active');
         vs.highlightedEdge = edge.id;
       });
-      sb.addStep(`  移除边 ${u}→${v}，节点 ${v} 入度 = ${(inDegree.get(v) || 0)}`);
+      sb.addStep(`移除边 ${u}→${v}，节点 ${v} 的入度减 1，当前入度 = ${(inDegree.get(v) || 0)}`);
 
       if (inDegree.get(v) === 0) {
         queue.push(v);
@@ -343,7 +339,7 @@ export function runKahn(graph: Graph): AlgorithmStep[] {
           data.queue = [...queue];
           vs.nodeStates.set(v, 'in-queue');
         });
-        sb.addStep(`  ✓ 节点 ${v} 入度变为 0，加入队列`);
+        sb.addStep(`节点 ${v} 的入度变为 0，已无前置依赖，将其加入处理队列`);
       }
     }
 
@@ -378,14 +374,14 @@ export function runKahn(graph: Graph): AlgorithmStep[] {
       });
       data.result = { success: false, cycle: [...remainingIds] };
     });
-    sb.addStep(`✗ 拓扑排序失败！剩余节点 [${remainingIds.join(', ')}] 形成环，无法完成排序`);
+    sb.addStep(`✗ 拓扑排序失败！剩余节点 [${remainingIds.join(', ')}] 形成环，图中存在环路，无法完成拓扑排序`);
   } else {
     sb.setState((vs, data) => {
       data.hasCycle = false;
       nodeIds.forEach(id => vs.nodeStates.set(id, 'in-tree'));
       data.result = { success: true, order: [...result] };
     });
-    sb.addStep(`✓ Kahn 完成！拓扑序：${result.join(' → ')}`);
+    sb.addStep(`✓ Kahn 算法完成！拓扑排序结果（满足所有前置依赖）：${result.join(' → ')}`);
   }
 
   return sb.getSteps();
@@ -407,7 +403,7 @@ export function runTarjan(graph: Graph): AlgorithmStep[] {
     vs.nodeStates.clear();
     vs.edgeStates.clear();
   });
-  sb.addStep(`初始化 Tarjan 算法：准备 dfn, low 数组和栈`);
+  sb.addStep(`初始化 Tarjan 强连通分量算法：准备 dfn 时间戳数组、low 追溯值数组和搜索栈`);
 
   const dfn = new Map<NodeId, number>();
   const low = new Map<NodeId, number>();
@@ -434,7 +430,7 @@ export function runTarjan(graph: Graph): AlgorithmStep[] {
       vs.nodeStates.set(v, 'in-stack');
       vs.highlightedNode = v;
     });
-    sb.addStep(`首次访问节点 ${v}：dfn=${time}，low=${time}，压入栈 [${stack.join(', ')}]`);
+    sb.addStep(`首次访问节点 ${v}：设置发现时间戳 dfn=${time}，追溯值 low=${time}，将节点 ${v} 压入搜索栈`);
 
     const outgoing = graph.getOutgoingEdges(v);
     const neighbors = graph.settings.isDirected 
@@ -451,7 +447,7 @@ export function runTarjan(graph: Graph): AlgorithmStep[] {
       }
 
       if (!dfn.has(w)) {
-        sb.addStep(`  树边 ${v}→${w}：节点 ${w} 未访问，递归处理`);
+        sb.addStep(`从节点 ${v} 出发，发现未访问邻居节点 ${w}，沿树边 ${v}→${w} 递归深入搜索`);
         strongConnect(w);
         const newLow = Math.min(low.get(v)!, low.get(w)!);
         low.set(v, newLow);
@@ -459,7 +455,7 @@ export function runTarjan(graph: Graph): AlgorithmStep[] {
         sb.setState((vs, data) => {
           data.low = Object.fromEntries(low);
         });
-        sb.addStep(`  回溯：low[${v}] = min(low[${v}]=${dfn.get(v)}, low[${w}]=${low.get(w)}) = ${newLow}`);
+        sb.addStep(`回溯到节点 ${v}：通过子节点 ${w} 更新追溯值 low[${v}] = min(${low.get(v)}, low[${w}]=${low.get(w)}) = ${newLow}`);
       } else if (onStack.has(w)) {
         const newLow = Math.min(low.get(v)!, dfn.get(w)!);
         low.set(v, newLow);
@@ -467,14 +463,14 @@ export function runTarjan(graph: Graph): AlgorithmStep[] {
         sb.setState((vs, data) => {
           data.low = Object.fromEntries(low);
         });
-        sb.addStep(`  回边 ${v}→${w}：${w} 在栈中，low[${v}] = min(${low.get(v)}, dfn[${w}]=${dfn.get(w)}) = ${newLow}`);
+        sb.addStep(`从节点 ${v} 出发，发现回边 ${v}→${w}（节点 ${w} 仍在栈中），更新 low[${v}] = min(${low.get(v)}, dfn[${w}]=${dfn.get(w)}) = ${newLow}`);
       } else {
         if (edge) {
           sb.setState((vs, data) => {
             vs.edgeStates.set(edge.id, 'visited');
           });
         }
-        sb.addStep(`  横叉边 ${v}→${w}：已访问且不在栈中，忽略`);
+        sb.addStep(`从节点 ${v} 出发，发现横叉边 ${v}→${w}（节点 ${w} 已访问且不在栈中），属于其他分量，忽略`);
       }
     }
 
@@ -487,7 +483,7 @@ export function runTarjan(graph: Graph): AlgorithmStep[] {
       sb.setState((vs, data) => {
         data.components = components.map(c => [...c]);
       });
-      sb.addStep(`━━ dfn[${v}] = low[${v}] = ${dfn.get(v)}，找到强连通分量！`);
+      sb.addStep(`━━ 节点 ${v} 的 dfn[${v}] = low[${v}] = ${dfn.get(v)}，说明找到一个强连通分量的根节点！`);
 
       do {
         w = stack.pop()!;
@@ -507,7 +503,7 @@ export function runTarjan(graph: Graph): AlgorithmStep[] {
       sb.setState((vs, data) => {
         data.components = components.map(c => [...c]);
       });
-      sb.addStep(`✓ 分量：{ ${component.join(', ')} }`);
+      sb.addStep(`✓ 找到一个强连通分量：{ ${component.join(', ')} }`);
 
       sb.setState((vs, data) => {
         for (let i = 0; i < component.length; i++) {
@@ -524,7 +520,7 @@ export function runTarjan(graph: Graph): AlgorithmStep[] {
 
   for (const v of nodeIds) {
     if (!dfn.has(v)) {
-      sb.addStep(`开始处理未访问节点 ${v}`);
+      sb.addStep(`发现未访问的节点 ${v}，从该节点开始进行深度优先搜索`);
       strongConnect(v);
     }
   }
@@ -541,7 +537,7 @@ export function runTarjan(graph: Graph): AlgorithmStep[] {
   });
 
   const compStr = components.map((c, i) => `C${i + 1}={${c.join(',')}}`).join(', ');
-  sb.addStep(`Tarjan 完成！共找到 ${components.length} 个强连通分量：${compStr}`);
+  sb.addStep(`Tarjan 算法完成！共找到 ${components.length} 个强连通分量：${compStr}`);
 
   return sb.getSteps();
 }

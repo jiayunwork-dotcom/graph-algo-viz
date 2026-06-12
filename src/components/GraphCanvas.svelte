@@ -366,6 +366,21 @@
     return renderer;
   }
 
+  export function exportPNG(): void {
+    if (!renderer || !graph) return;
+    const vs = algorithmStep?.snapshot.visualState || visualState;
+    const dataUrl = renderer.exportToPNG(graph, vs || undefined, 20);
+    if (dataUrl) {
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      a.download = `graph-${timestamp}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  }
+
   onMount(() => {
     renderer = new GraphCanvasRenderer(canvas);
     handleResize();
@@ -394,6 +409,13 @@
     on:contextmenu={handleContextMenu}
     style="touch-action: none; cursor: default;"
   ></canvas>
+
+  <div class="canvas-toolbar-top">
+    <button class="screenshot-btn" title="导出当前画布为PNG图片" on:click={exportPNG}>
+      <span class="btn-icon">📷</span>
+      <span class="btn-text">截图</span>
+    </button>
+  </div>
 
   {#if contextMenu.show}
     <div 
@@ -468,5 +490,50 @@
     height: 1px;
     background: #e5e7eb;
     margin: 4px 0;
+  }
+
+  .canvas-toolbar-top {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 50;
+    display: flex;
+    gap: 8px;
+  }
+
+  .screenshot-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: white;
+    color: #374151;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: all 0.15s ease;
+  }
+
+  .screenshot-btn:hover {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-color: #6366f1;
+    color: white;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+    transform: translateY(-1px);
+  }
+
+  .screenshot-btn:active {
+    transform: translateY(0);
+  }
+
+  .screenshot-btn .btn-icon {
+    font-size: 15px;
+  }
+
+  .screenshot-btn .btn-text {
+    line-height: 1;
   }
 </style>

@@ -583,4 +583,297 @@ export class GraphCanvasRenderer {
     }
     return null;
   }
+
+  exportToPNG(graph: Graph, visualState?: VisualState, padding: number = 20): string | null {
+    const nodes = graph.getAllNodes();
+    if (nodes.length === 0) {
+      const blankCanvas = document.createElement('canvas');
+      blankCanvas.width = 400;
+      blankCanvas.height = 300;
+      const bctx = blankCanvas.getContext('2d');
+      if (bctx) {
+        bctx.fillStyle = '#ffffff';
+        bctx.fillRect(0, 0, 400, 300);
+      }
+      return blankCanvas.toDataURL('image/png');
+    }
+
+    const r = this.config.nodeRadius;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    nodes.forEach(n => {
+      minX = Math.min(minX, n.x - r);
+      minY = Math.min(minY, n.y - r);
+      maxX = Math.max(maxX, n.x + r);
+      maxY = Math.max(maxY, n.y + r);
+    });
+
+    const graphWidth = maxX - minX;
+    const graphHeight = maxY - minY;
+    const totalPadding = padding * 2;
+    const exportWidth = Math.ceil(graphWidth + totalPadding);
+    const exportHeight = Math.ceil(graphHeight + totalPadding);
+
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = exportWidth * dpr;
+    exportCanvas.height = exportHeight * dpr;
+    exportCanvas.style.width = exportWidth + 'px';
+    exportCanvas.style.height = exportHeight + 'px';
+
+    const ctx = exportCanvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, exportWidth, exportHeight);
+
+    const origCamera = { ...this.camera };
+    this.camera.x = (minX + maxX) / 2;
+    this.camera.y = (minY + maxY) / 2;
+    this.camera.zoom = Math.min(
+      (exportWidth - totalPadding) / graphWidth,
+      (exportHeight - totalPadding) / graphHeight
+    );
+
+    const origCanvas = this.canvas;
+    const origCtx = this.ctx;
+    (this as any).canvas = exportCanvas;
+    (this as any).ctx = ctx;
+
+    try {
+      this.clearExport(ctx, exportWidth, exportHeight);
+      this.renderExport(ctx, graph, visualState, exportWidth, exportHeight);
+    } finally {
+      (this as any).canvas = origCanvas;
+      (this as any).ctx = origCtx;
+      this.camera = origCamera;
+    }
+
+    return exportCanvas.toDataURL('image/png');
+  }
+
+  private clearExport(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  private renderExport(
+    ctx: CanvasRenderingContext2D,
+    graph: Graph,
+    visualState?: VisualState,
+    targetW?: number,
+    targetH?: number
+  ): void {
+    const edges = graph.getAllEdges();
+    const nodes = graph.getAllNodes();
+    const showLabels = this.config.showLabels;
+    const showWeights = this.config.showWeights;
+    const enableShadows = true;
+
+    ctx.lineCap = 'round';
+
+    for (let i = 0; i < edges.length; i++) {
+      const edge = edges[i];
+      const source = graph.getNode(edge.source);
+      const target = graph.getNode(edge.target);
+      if (!source || !target) continue;
+      const edgeState = visualState?.edgeStates.get(edge.id);
+      this.drawEdgeExport(ctx, edge, source, target, edgeState, visualState, showWeights, enableShadows);
+    }
+
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      const nodeState = visualState?.nodeStates.get(node.id);
+      const customColor = visualState?.nodeColors.get(node.id);
+      const isHighlighted = visualState?.highlightedNode === node.id;
+      this.drawNodeExport(ctx, node, nodeState, customColor, false, false, isHighlighted, node.fixed, showLabels, enableShadows);
+    }
+  }
+
+  private drawNodeExport(
+    ctx: CanvasRenderingContext2D,
+    node: GraphNode,
+    state: NodeState | undefined,
+    customColor: string | undefined,
+    isSelected: boolean,
+    isHovered: boolean,
+    isHighlighted: boolean,
+    isFixed: boolean,
+    showLabels: boolean,
+    enableShadows: boolean
+  ): void {
+    const pos = this.worldToScreen(node.x, node.y);
+    const r = this.config.nodeRadius * this.camera.zoom;
+
+    ctx.save();
+
+    if (enableShadows && isHighlighted) {
+      ctx.shadowColor = COLORS.highlight;
+      ctx.shadowBlur = 15;
+    }
+
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = getNodeColor(node, state, customColor);
+    ctx.fill();
+
+    ctx.lineWidth = isSelected ? 4 : 2;
+    ctx.strokeStyle = isSelected ? COLORS.highlight : COLORS.node.border;
+    ctx.stroke();
+
+    if (isFixed) {
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, r * 0.7, 0, Math.PI * 2);
+      ctx.strokeStyle = '#6b7280';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    ctx.shadowBlur = 0;
+
+    if (showLabels && r >= 8) {
+      ctx.fillStyle = COLORS.text;
+      const fontSize = Math.max(9, Math.min(14, 14 * this.camera.zoom));
+      ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const label = node.label.length > 4 ? node.label.slice(0, 3) + '…' : node.label;
+      ctx.fillText(label, pos.x, pos.y);
+    }
+
+    ctx.restore();
+  }
+
+  private drawEdgeExport(
+    ctx: CanvasRenderingContext2D,
+    edge: GraphEdge,
+    source: GraphNode,
+    target: GraphNode,
+    state: EdgeState | undefined,
+    vs: VisualState | undefined,
+    showWeights: boolean,
+    enableShadows: boolean
+  ): void {
+    const s = this.worldToScreen(source.x, source.y);
+    const t = this.worldToScreen(target.x, target.y);
+    const r = this.config.nodeRadius * this.camera.zoom;
+
+    const dx = t.x - s.x;
+    const dy = t.y - s.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len === 0) return;
+
+    const ux = dx / len;
+    const uy = dy / len;
+
+    const sx = s.x + ux * r;
+    const sy = s.y + uy * r;
+    const ex = t.x - ux * r;
+    const ey = t.y - uy * r;
+
+    const midX = (sx + ex) / 2;
+    const midY = (sy + ey) / 2;
+
+    const lineWidth = getEdgeWidth(state);
+    const isHighlighted = vs?.highlightedEdge === edge.id;
+
+    ctx.save();
+
+    if (enableShadows && isHighlighted) {
+      ctx.shadowColor = getEdgeColor(state);
+      ctx.shadowBlur = 12;
+    }
+
+    ctx.strokeStyle = getEdgeColor(state);
+    ctx.lineWidth = lineWidth;
+
+    if (!edge.directed || source.id === target.id) {
+      if (source.id !== target.id) {
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+      }
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+
+      if (this.config.showEdgeDirections && r >= 8) {
+        ctx.shadowBlur = 0;
+        const arrowLen = Math.max(6, 12 * this.camera.zoom);
+        const arrowAngle = Math.PI / 6;
+        const angle = Math.atan2(ey - sy, ex - sx);
+
+        ctx.fillStyle = getEdgeColor(state);
+        ctx.beginPath();
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(
+          ex - arrowLen * Math.cos(angle - arrowAngle),
+          ey - arrowLen * Math.sin(angle - arrowAngle)
+        );
+        ctx.lineTo(
+          ex - arrowLen * Math.cos(angle + arrowAngle),
+          ey - arrowLen * Math.sin(angle + arrowAngle)
+        );
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    ctx.shadowBlur = 0;
+
+    if ((showWeights || this.config.showFlow) && r >= 10) {
+      const offsetDist = 15;
+      const perpX = -uy;
+      const perpY = ux;
+      const labelX = midX + perpX * offsetDist;
+      const labelY = midY + perpY * offsetDist;
+
+      let labelText = '';
+      if (this.config.showFlow && edge.capacity !== undefined) {
+        labelText = `${edge.flow || 0}/${edge.capacity}`;
+      } else if (showWeights) {
+        labelText = String(edge.weight);
+      }
+
+      if (labelText && source.id !== target.id) {
+        const fontSize = Math.max(9, Math.min(12, 12 * this.camera.zoom));
+        ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
+        const metrics = ctx.measureText(labelText);
+        const padding = 6;
+        const boxW = metrics.width + padding * 2;
+        const boxH = fontSize + padding;
+
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = getEdgeColor(state);
+        ctx.lineWidth = 1.5;
+
+        ctx.beginPath();
+        const radius = 4;
+        ctx.moveTo(labelX - boxW / 2 + radius, labelY - boxH / 2);
+        ctx.lineTo(labelX + boxW / 2 - radius, labelY - boxH / 2);
+        ctx.quadraticCurveTo(labelX + boxW / 2, labelY - boxH / 2, labelX + boxW / 2, labelY - boxH / 2 + radius);
+        ctx.lineTo(labelX + boxW / 2, labelY + boxH / 2 - radius);
+        ctx.quadraticCurveTo(labelX + boxW / 2, labelY + boxH / 2, labelX + boxW / 2 - radius, labelY + boxH / 2);
+        ctx.lineTo(labelX - boxW / 2 + radius, labelY + boxH / 2);
+        ctx.quadraticCurveTo(labelX - boxW / 2, labelY + boxH / 2, labelX - boxW / 2, labelY + boxH / 2 - radius);
+        ctx.lineTo(labelX - boxW / 2, labelY - boxH / 2 + radius);
+        ctx.quadraticCurveTo(labelX - boxW / 2, labelY - boxH / 2, labelX - boxW / 2 + radius, labelY - boxH / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = COLORS.text;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(labelText, labelX, labelY + 1);
+      }
+    }
+
+    ctx.restore();
+  }
 }

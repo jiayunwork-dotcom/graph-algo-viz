@@ -5,6 +5,7 @@
   import ControlPanel from './components/ControlPanel.svelte';
   import Sidebar from './components/Sidebar.svelte';
   import { Graph } from './lib/graph';
+  import { HistoryManager } from './lib/history';
   import type { AlgorithmType, GraphMode, GraphNode, GraphEdge, NodeId, EdgeId, AlgorithmStep, VisualState, PresetGraph } from './lib/types';
   import type { LayoutType } from './lib/layout';
   import { ForceDirectedLayout, applyCircularLayout, applyHierarchyLayout } from './lib/layout';
@@ -13,11 +14,15 @@
   import { createEmptyVisualState } from './lib/algorithms/step-builder';
 
   let graph = new Graph();
+  let historyManager = new HistoryManager();
   let animator = new AlgorithmAnimator();
   let animator2 = new AlgorithmAnimator();
   let forceLayout: ForceDirectedLayout | null = null;
   let canvasComponent: GraphCanvas;
   let canvasComponent2: GraphCanvas;
+
+  $: canUndo = historyManager.canUndo() && !isRunning && !isRunning2;
+  $: canRedo = historyManager.canRedo() && !isRunning && !isRunning2;
 
   let selectedAlgorithm: AlgorithmType | null = null;
   let selectedAlgorithm2: AlgorithmType | null = null;
@@ -84,6 +89,42 @@
     syncMode = sync;
   }
 
+  function recordHistory() {
+    if (!isRunning && !isRunning2) {
+      historyManager.pushState(graph);
+    }
+  }
+
+  function handleUndo() {
+    if (!canUndo) return;
+    const prevGraph = historyManager.undo();
+    if (prevGraph) {
+      graph = prevGraph;
+      startNodeId = null;
+      sinkNodeId = null;
+      selectedNode = null;
+      selectedEdge = null;
+      animator.stop();
+      animator2.stop();
+      rerender();
+    }
+  }
+
+  function handleRedo() {
+    if (!canRedo) return;
+    const nextGraph = historyManager.redo();
+    if (nextGraph) {
+      graph = nextGraph;
+      startNodeId = null;
+      sinkNodeId = null;
+      selectedNode = null;
+      selectedEdge = null;
+      animator.stop();
+      animator2.stop();
+      rerender();
+    }
+  }
+
   function handleRunBothAlgorithms() {
     const success1 = animator.prepareAlgorithm(selectedAlgorithm!, graph, startNodeId ?? undefined, sinkNodeId ?? undefined);
     const success2 = animator2.prepareAlgorithm(selectedAlgorithm2!, graph, startNodeId2 ?? undefined, sinkNodeId2 ?? undefined);
@@ -123,12 +164,14 @@
   }
 
   function handleGraphModeChange(mode: GraphMode) {
+    recordHistory();
     graph.setMode(mode);
     graphMode = mode;
     rerender();
   }
 
   function handleLayoutChange(type: LayoutType) {
+    recordHistory();
     layoutType = type;
     const container = document.querySelector('.canvas-container') as HTMLElement;
     const w = container?.clientWidth || 800;
@@ -151,6 +194,7 @@
   }
 
   function handleLoadPreset(preset: PresetGraph) {
+    recordHistory();
     const newGraph = new Graph();
     newGraph.settings = { ...preset.settings };
     preset.nodes.forEach(n => {
@@ -195,6 +239,7 @@
       try {
         const data = JSON.parse(e.target?.result as string);
         const newGraph = Graph.fromJSON(data);
+        recordHistory();
         graph = newGraph;
         if (data.settings?.mode) {
           graphMode = data.settings.mode;
@@ -212,6 +257,7 @@
 
   function handleClearGraph() {
     if (graph.getNodeCount() > 0 && !confirm('确定要清空整个图吗？')) return;
+    recordHistory();
     graph.clear();
     startNodeId = null;
     sinkNodeId = null;
@@ -313,8 +359,15 @@
   function handleStop2() { animator2.stop(); }
   function handleJumpTo2(idx: number) { animator2.jumpToStep(idx); }
 
-  function handleNodeCreated() { rerender(); }
-  function handleNodeMoved() { rerender(); }
+  function handleNodeCreated() {
+    recordHistory();
+    rerender();
+  }
+
+  function handleNodeMoved() {
+    recordHistory();
+    rerender();
+  }
 
   function handleNodeSelected(e: CustomEvent<{ id: NodeId | null }>) {
     selectedNode = e.detail.id;
@@ -338,8 +391,10 @@
         alert('请输入有效的正数值');
         return;
       }
+      recordHistory();
       graph.addEdge(source, target, w);
     } else {
+      recordHistory();
       graph.addEdge(source, target, 1);
     }
     rerender();
@@ -350,6 +405,7 @@
   }
 
   function handleDeleteNode(e: CustomEvent<{ id: NodeId }>) {
+    recordHistory();
     graph.removeNode(e.detail.id);
     if (startNodeId === e.detail.id) startNodeId = null;
     if (sinkNodeId === e.detail.id) sinkNodeId = null;
@@ -357,6 +413,7 @@
   }
 
   function handleDeleteEdge(e: CustomEvent<{ id: EdgeId }>) {
+    recordHistory();
     graph.removeEdge(e.detail.id);
     rerender();
   }
@@ -366,6 +423,7 @@
     if (!node) return;
     const input = prompt('编辑节点标签：', node.label);
     if (input !== null && input.trim() !== '') {
+      recordHistory();
       graph.setNodeLabel(e.detail.id, input.trim());
       rerender();
     }
@@ -387,6 +445,7 @@
       alert('请输入有效的正数值');
       return;
     }
+    recordHistory();
     graph.setEdgeWeight(e.detail.id, w);
     rerender();
   }
@@ -400,8 +459,8 @@
     graph = graph;
   }
 
-  $: hasAlgorithm = playbackState !== 'idle' && animator.getAlgorithmType() !== null;
-  $: hasAlgorithm2 = playbackState2 !== 'idle' && animator2.getAlgorithmType() !== null;
+  $: hasAlgorithm = animator.getAlgorithmType() !== null && animator.getTotalSteps() > 0;
+  $: hasAlgorithm2 = animator2.getAlgorithmType() !== null && animator2.getTotalSteps() > 0;
   $: isRunning = playbackState === 'playing';
   $: isRunning2 = playbackState2 === 'playing';
   $: totalSteps = animator.getTotalSteps();
@@ -423,6 +482,7 @@
     forceLayout = new ForceDirectedLayout(graph, w - 360, h - 180);
 
     animator.setCallbacks(onStepChange, onStateChange);
+    historyManager.reset(graph);
   });
 
   onDestroy(() => {
@@ -442,6 +502,14 @@
   }
   if (e.key === 'ArrowRight' && hasAlgorithm) handleStepForward();
   if (e.key === 'ArrowLeft' && hasAlgorithm) handleStepBackward();
+  if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    handleUndo();
+  }
+  if (e.ctrlKey && e.shiftKey && e.key === 'z') {
+    e.preventDefault();
+    handleRedo();
+  }
 }} />
 
 <div class="app">
@@ -458,6 +526,8 @@
     sinkNodeId2={sinkNodeId2}
     isRunning2={playbackState2 === 'playing'}
     syncMode={syncMode}
+    canUndo={canUndo}
+    canRedo={canRedo}
     on:algorithmSelect={(e) => handleAlgorithmSelect(e.detail)}
     on:graphModeChange={(e) => handleGraphModeChange(e.detail)}
     on:layoutChange={(e) => handleLayoutChange(e.detail)}
@@ -475,6 +545,8 @@
     on:selectSinkNode2={handleSelectSinkNode2}
     on:runBothAlgorithms={handleRunBothAlgorithms}
     on:toggleSyncMode={(e) => handleToggleSyncMode(e.detail)}
+    on:undo={handleUndo}
+    on:redo={handleRedo}
   />
 
   <div class="main-content">
@@ -608,6 +680,35 @@
           <span class="stat tip">💡 左键空白：添加节点 | 选中节点+点击节点：创建边 | Shift+拖拽：平移 | 滚轮：缩放 | 右键：菜单</span>
         </div>
       </div>
+
+      {#if compareMode}
+        <div class="step-explanation-row compare">
+          <div class="explanation-item left">
+            {#if hasAlgorithm}
+              <span class="explanation-label">A</span>
+              <span class="explanation-text">{currentDescription || '等待开始...'}</span>
+            {:else}
+              <span class="explanation-empty">算法 A：选择算法并点击运行</span>
+            {/if}
+          </div>
+          <div class="explanation-divider"></div>
+          <div class="explanation-item right">
+            {#if hasAlgorithm2}
+              <span class="explanation-label">B</span>
+              <span class="explanation-text">{currentDescription2 || '等待开始...'}</span>
+            {:else}
+              <span class="explanation-empty">算法 B：选择算法并点击运行</span>
+            {/if}
+          </div>
+        </div>
+      {:else}
+        {#if hasAlgorithm || (algorithmStep && currentDescription)}
+          <div class="step-explanation-row">
+            <span class="step-explanation-icon">💬</span>
+            <span class="step-explanation-text">{currentDescription || '等待开始...'}</span>
+          </div>
+        {/if}
+      {/if}
     </div>
 
     <div class="sidebar-area">
@@ -619,6 +720,8 @@
         algorithmType2={algorithmType2}
         algorithmData2={algorithmStep2?.snapshot.data || {}}
         hasAlgorithm2={playbackState2 !== 'idle' && animator2.getAlgorithmType() !== null}
+        selectedAlgorithm={selectedAlgorithm}
+        selectedAlgorithm2={selectedAlgorithm2}
       />
     </div>
   </div>
@@ -754,6 +857,106 @@
 
   .stat.tip {
     color: #94a3b8;
+  }
+
+  .step-explanation-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%);
+    border-top: 1px solid #fde68a;
+    border-left: 4px solid #f59e0b;
+    font-size: 14px;
+    color: #92400e;
+    line-height: 1.5;
+    flex-shrink: 0;
+    min-height: 40px;
+  }
+
+  .step-explanation-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .step-explanation-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  .step-explanation-row.compare {
+    display: flex;
+    gap: 0;
+    padding: 0;
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    border-left: none;
+    min-height: auto;
+  }
+
+  .step-explanation-row.compare .explanation-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    min-height: 40px;
+  }
+
+  .step-explanation-row.compare .explanation-item.left {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border-left: 4px solid #3b82f6;
+    color: #1e40af;
+  }
+
+  .step-explanation-row.compare .explanation-item.right {
+    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+    border-left: 4px solid #f97316;
+    color: #9a3412;
+  }
+
+  .step-explanation-row.compare .explanation-divider {
+    width: 4px;
+    background: linear-gradient(180deg, #6366f1, #8b5cf6);
+    flex-shrink: 0;
+  }
+
+  .step-explanation-row.compare .explanation-label {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 11px;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .step-explanation-row.compare .explanation-item.left .explanation-label {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+  }
+
+  .step-explanation-row.compare .explanation-item.right .explanation-label {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+  }
+
+  .step-explanation-row.compare .explanation-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+    font-size: 13px;
+  }
+
+  .step-explanation-row.compare .explanation-empty {
+    font-size: 12px;
+    opacity: 0.7;
   }
 
   @media (max-width: 1100px) {

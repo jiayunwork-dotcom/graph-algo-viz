@@ -9,6 +9,8 @@
   export let algorithmType2: AlgorithmType | null = null;
   export let algorithmData2: AlgorithmData = {};
   export let hasAlgorithm2: boolean = false;
+  export let selectedAlgorithm: AlgorithmType | null = null;
+  export let selectedAlgorithm2: AlgorithmType | null = null;
 
   function formatKey(key: string): string {
     const map: Record<string, string> = {
@@ -151,6 +153,32 @@
   {#if compareMode}
     <div class="compare-sidebars">
       <div class="compare-sidebar left">
+        {#if selectedAlgorithm && ALGORITHM_INFO[selectedAlgorithm]}
+          <div class="algo-info-card left selected-card">
+            <div class="selected-card-header">
+              <div class="selected-card-title left">
+                <span class="selected-card-badge">A</span>
+                <span class="selected-card-name">{ALGORITHM_INFO[selectedAlgorithm].name}</span>
+              </div>
+            </div>
+            <div class="selected-card-body">
+              <div class="complexity-row">
+                <div class="complexity-chip time">
+                  <span class="chip-icon">⏱️</span>
+                  <span class="chip-text">{ALGORITHM_INFO[selectedAlgorithm].timeComplexity}</span>
+                </div>
+                <div class="complexity-chip space">
+                  <span class="chip-icon">💾</span>
+                  <span class="chip-text">{ALGORITHM_INFO[selectedAlgorithm].spaceComplexity}</span>
+                </div>
+              </div>
+              <div class="usecases-row">
+                <span class="usecases-label">🎯 典型应用</span>
+                <span class="usecases-text">{ALGORITHM_INFO[selectedAlgorithm].useCases.slice(0, 4).join('，')}</span>
+              </div>
+            </div>
+          </div>
+        {/if}
         {#if algorithmType && ALGORITHM_INFO[algorithmType]}
           <div class="section algo-info">
             <div class="algo-header left">
@@ -219,6 +247,32 @@
       <div class="compare-sidebar-divider"></div>
 
       <div class="compare-sidebar right">
+        {#if selectedAlgorithm2 && ALGORITHM_INFO[selectedAlgorithm2]}
+          <div class="algo-info-card right selected-card">
+            <div class="selected-card-header">
+              <div class="selected-card-title right">
+                <span class="selected-card-badge">B</span>
+                <span class="selected-card-name">{ALGORITHM_INFO[selectedAlgorithm2].name}</span>
+              </div>
+            </div>
+            <div class="selected-card-body">
+              <div class="complexity-row">
+                <div class="complexity-chip time">
+                  <span class="chip-icon">⏱️</span>
+                  <span class="chip-text">{ALGORITHM_INFO[selectedAlgorithm2].timeComplexity}</span>
+                </div>
+                <div class="complexity-chip space">
+                  <span class="chip-icon">💾</span>
+                  <span class="chip-text">{ALGORITHM_INFO[selectedAlgorithm2].spaceComplexity}</span>
+                </div>
+              </div>
+              <div class="usecases-row">
+                <span class="usecases-label">🎯 典型应用</span>
+                <span class="usecases-text">{ALGORITHM_INFO[selectedAlgorithm2].useCases.slice(0, 4).join('，')}</span>
+              </div>
+            </div>
+          </div>
+        {/if}
         {#if algorithmType2 && ALGORITHM_INFO[algorithmType2]}
           <div class="section algo-info">
             <div class="algo-header right">
@@ -285,6 +339,34 @@
       </div>
     </div>
   {:else}
+    {#if selectedAlgorithm && ALGORITHM_INFO[selectedAlgorithm]}
+      <div class="selected-card standalone">
+        <div class="selected-card-header">
+          <div class="selected-card-title standalone">
+            <span class="selected-card-icon">🧠</span>
+            <span class="selected-card-name">{ALGORITHM_INFO[selectedAlgorithm].name}</span>
+          </div>
+        </div>
+        <div class="selected-card-body">
+          <div class="complexity-row">
+            <div class="complexity-chip time">
+              <span class="chip-icon">⏱️</span>
+              <span class="chip-label">时间复杂度</span>
+              <span class="chip-text">{ALGORITHM_INFO[selectedAlgorithm].timeComplexity}</span>
+            </div>
+            <div class="complexity-chip space">
+              <span class="chip-icon">💾</span>
+              <span class="chip-label">空间复杂度</span>
+              <span class="chip-text">{ALGORITHM_INFO[selectedAlgorithm].spaceComplexity}</span>
+            </div>
+          </div>
+          <div class="usecases-row">
+            <span class="usecases-label">🎯 典型应用场景</span>
+            <span class="usecases-text">{ALGORITHM_INFO[selectedAlgorithm].useCases.slice(0, 4).join('，')}</span>
+          </div>
+        </div>
+      </div>
+    {/if}
     {#if algorithmType && ALGORITHM_INFO[algorithmType]}
       <div class="section algo-info">
         <h3 class="section-title">📖 算法说明</h3>
@@ -795,5 +877,170 @@
   .compare-sidebar::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 2px;
+  }
+
+  .selected-card {
+    background: linear-gradient(135deg, #ffffff, #f8fafc);
+    border: 1px solid #e0e7ff;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
+  }
+
+  .selected-card.standalone {
+    border: 1px solid #c7d2fe;
+    background: linear-gradient(135deg, #eef2ff 0%, #faf5ff 50%, #ffffff 100%);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
+  }
+
+  .selected-card.left {
+    border-color: #bfdbfe;
+    background: linear-gradient(135deg, #eff6ff, #ffffff);
+  }
+
+  .selected-card.right {
+    border-color: #fed7aa;
+    background: linear-gradient(135deg, #fff7ed, #ffffff);
+  }
+
+  .selected-card-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .selected-card.standalone .selected-card-header {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-bottom: none;
+  }
+
+  .selected-card.left .selected-card-header {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border-bottom: none;
+  }
+
+  .selected-card.right .selected-card-header {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+    border-bottom: none;
+  }
+
+  .selected-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .selected-card-title.standalone {
+    color: white;
+  }
+
+  .selected-card-title.left {
+    color: white;
+  }
+
+  .selected-card-title.right {
+    color: white;
+  }
+
+  .selected-card-badge {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .selected-card-icon {
+    font-size: 18px;
+  }
+
+  .selected-card-name {
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .selected-card-body {
+    padding: 12px 14px;
+  }
+
+  .complexity-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .complexity-chip {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+  }
+
+  .complexity-chip.time {
+    background: #fffbeb;
+    border-color: #fde68a;
+  }
+
+  .complexity-chip.space {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+  }
+
+  .chip-icon {
+    font-size: 12px;
+  }
+
+  .chip-label {
+    font-size: 10px;
+    color: #64748b;
+    font-weight: 600;
+  }
+
+  .chip-text {
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .complexity-chip.time .chip-text {
+    color: #d97706;
+  }
+
+  .complexity-chip.space .chip-text {
+    color: #059669;
+  }
+
+  .usecases-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #f1f5f9;
+  }
+
+  .usecases-label {
+    font-size: 10px;
+    color: #64748b;
+    font-weight: 600;
+  }
+
+  .usecases-text {
+    font-size: 12px;
+    color: #334155;
+    line-height: 1.5;
   }
 </style>
