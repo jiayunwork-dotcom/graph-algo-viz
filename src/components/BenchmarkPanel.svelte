@@ -71,6 +71,7 @@
 
   let lineChartCanvas: HTMLCanvasElement;
   let barChartCanvas: HTMLCanvasElement;
+  let lineChartContainer: HTMLDivElement;
 
   let lineTooltipData: { x: number; y: number; text: string } | null = null;
   let barTooltipData: { x: number; y: number; text: string } | null = null;
@@ -164,6 +165,15 @@
   })();
 
   $: xAxisValues = (() => {
+    if (comparisonMode && comparisonDatasets.length > 1) {
+      const allX = new Set<number>();
+      for (const ds of comparisonDatasets) {
+        for (const r of ds.results) {
+          allX.add(getXValue(r));
+        }
+      }
+      return Array.from(allX).sort((a, b) => a - b);
+    }
     if (variationMode === 'parameter') {
       return paramValues;
     }
@@ -171,6 +181,13 @@
   })();
 
   $: xAxisLabel = (() => {
+    if (comparisonMode && comparisonDatasets.length > 1) {
+      const hasParam = comparisonDatasets.some(ds => ds.results.some(r => r.paramValue !== undefined));
+      const hasNode = comparisonDatasets.some(ds => ds.results.some(r => r.paramValue === undefined));
+      if (hasParam && hasNode) return 'X轴值';
+      if (hasParam) return '参数值';
+      return '节点数';
+    }
     if (variationMode === 'parameter') {
       return PARAM_LABELS[varyingParamName] || '参数值';
     }
@@ -226,6 +243,137 @@
     const sec = Math.round(s % 60);
     return `${min}m${sec}s`;
   };
+
+  function formatXAxisValue(value: number, paramName?: ParameterName | string): string {
+    if (value === undefined || value === null || isNaN(value)) return '-';
+    if (paramName) {
+      return value < 0.01 ? value.toExponential(2) : value.toFixed(2);
+    }
+    return String(Math.round(value));
+  }
+
+  function adjustTooltipX(x: number, isWarning: boolean = false): number {
+    if (!lineChartContainer || !lineChartCanvas) return x + 15;
+    const containerRect = lineChartContainer.getBoundingClientRect();
+    const canvasRect = lineChartCanvas.getBoundingClientRect();
+    const canvasOffsetX = canvasRect.left - containerRect.left;
+    const tooltipWidth = isWarning ? 220 : 160;
+    const offsetX = 15;
+    const absoluteX = canvasOffsetX + x;
+    const adjustedX = absoluteX + offsetX;
+    
+    if (adjustedX + tooltipWidth > containerRect.width - 5) {
+      return Math.max(0, absoluteX - offsetX - tooltipWidth);
+    }
+    return Math.max(0, adjustedX);
+  }
+
+  function adjustTooltipY(y: number): number {
+    if (!lineChartContainer || !lineChartCanvas) return y - 10;
+    const containerRect = lineChartContainer.getBoundingClientRect();
+    const canvasRect = lineChartCanvas.getBoundingClientRect();
+    const canvasOffsetY = canvasRect.top - containerRect.top;
+    const tooltipHeight = 60;
+    const offsetY = 10;
+    const absoluteY = canvasOffsetY + y;
+    const adjustedY = absoluteY - offsetY;
+    
+    if (adjustedY < 0) {
+      return absoluteY + offsetY;
+    }
+    if (adjustedY + tooltipHeight > containerRect.height) {
+      return Math.max(0, absoluteY - offsetY - tooltipHeight);
+    }
+    return Math.max(0, adjustedY);
+  }
+
+  function handleRecordKeydown(e: KeyboardEvent, recordId: string) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (comparisonMode) {
+        toggleComparisonRecord(recordId);
+      } else {
+        loadRecord(recordId);
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const items = document.querySelectorAll<HTMLElement>('.dropdown-item[tabindex="0"]');
+      const current = Array.from(items).indexOf(e.currentTarget as HTMLElement);
+      const next = items[(current + 1) % items.length];
+      next?.focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const items = document.querySelectorAll<HTMLElement>('.dropdown-item[tabindex="0"]');
+      const current = Array.from(items).indexOf(e.currentTarget as HTMLElement);
+      const prev = items[(current - 1 + items.length) % items.length];
+      prev?.focus();
+    } else if (e.key === 'Escape') {
+      showHistoryDropdown = false;
+      lastFocusedElement?.focus();
+    }
+  }
+
+  let lastFocusedElement: HTMLElement | null = null;
+  let modalFirstFocusable: HTMLElement | null = null;
+  let modalLastFocusable: HTMLElement | null = null;
+
+  function toggleHistoryDropdown() {
+    if (showHistoryDropdown) {
+      showHistoryDropdown = false;
+    } else {
+      lastFocusedElement = document.activeElement as HTMLElement;
+      showHistoryDropdown = true;
+    }
+  }
+
+  function openSaveDialog() {
+    if (aggregatedResults.length === 0) return;
+    lastFocusedElement = document.activeElement as HTMLElement;
+    saveName = generateDefaultRecordName();
+    showSaveDialog = true;
+  }
+
+  function closeSaveDialog() {
+    showSaveDialog = false;
+    requestAnimationFrame(() => {
+      lastFocusedElement?.focus();
+    });
+  }
+
+  function handleModalKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeSaveDialog();
+    } else if (e.key === 'Tab') {
+      if (!modalFirstFocusable || !modalLastFocusable) return;
+      const active = document.activeElement as HTMLElement;
+      if (e.shiftKey) {
+        if (active === modalFirstFocusable) {
+          e.preventDefault();
+          modalLastFocusable.focus();
+        }
+      } else {
+        if (active === modalLastFocusable) {
+          e.preventDefault();
+          modalFirstFocusable.focus();
+        }
+      }
+    } else if (e.key === 'Enter') {
+      if (document.activeElement?.tagName !== 'BUTTON') {
+        e.preventDefault();
+        if (saveName.trim()) {
+          handleSaveRecord();
+        }
+      }
+    }
+  }
+
+  function handleDropdownKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      showHistoryDropdown = false;
+      lastFocusedElement?.focus();
+    }
+  }
 
   function toggleAlgorithm(type: AlgorithmType) {
     if (testing) return;
@@ -884,7 +1032,7 @@
 
     (barChartCanvas as any)._chartData = {
       padL, padR, padT, padB, chartW, chartH,
-      algoNames, maxTime, barPositions, comparisonDatasets, selectedXVal
+      algoNames, maxTime, barPositions, comparisonDatasets, comparisonMode, selectedXVal
     };
   }
 
@@ -1010,6 +1158,27 @@
     }
   }
 
+  $: if (showSaveDialog) {
+    requestAnimationFrame(() => {
+      const dialog = document.querySelector('.modal-dialog') as HTMLElement;
+      const focusable = dialog?.querySelectorAll<HTMLElement>('input, button, [tabindex]:not([tabindex="-1"])');
+      if (focusable && focusable.length > 0) {
+        modalFirstFocusable = focusable[0];
+        modalLastFocusable = focusable[focusable.length - 1];
+        modalFirstFocusable.focus();
+      }
+    });
+  }
+
+  $: if (showHistoryDropdown) {
+    requestAnimationFrame(() => {
+      const firstItem = document.querySelector<HTMLElement>('.dropdown-item[tabindex="0"]');
+      if (firstItem) {
+        firstItem.focus();
+      }
+    });
+  }
+
   $: if (graphModel && availableParamsForModel.length > 0 && !availableParamsForModel.includes(varyingParamName)) {
     varyingParamName = availableParamsForModel[0];
     handleVaryingParamChange();
@@ -1061,11 +1230,7 @@
     a.click();
   }
 
-  function openSaveDialog() {
-    if (aggregatedResults.length === 0) return;
-    saveName = generateDefaultRecordName();
-    showSaveDialog = true;
-  }
+
 
   function generateDefaultRecordName(): string {
     const modelPart = graphModel === 'erdos-renyi' ? 'ER' : graphModel === 'watts-strogatz' ? 'WS' : 'BA';
@@ -1203,8 +1368,8 @@
   }
 
   function getXValue(result: BenchmarkResult): number {
-    if (variationMode === 'parameter') {
-      return result.paramValue ?? result.nodeCount;
+    if (result.paramValue !== undefined && result.paramValue !== null) {
+      return result.paramValue;
     }
     return result.nodeCount;
   }
@@ -1294,13 +1459,22 @@
       <div class="history-dropdown" class:open={showHistoryDropdown}>
         <button 
           class="header-btn" 
-          on:click={() => showHistoryDropdown = !showHistoryDropdown}
+          on:click={toggleHistoryDropdown}
+          on:keydown={(e) => {
+            if (e.key === 'ArrowDown' && showHistoryDropdown) {
+              e.preventDefault();
+              const firstItem = document.querySelector<HTMLElement>('.dropdown-item[tabindex="0"]');
+              firstItem?.focus();
+            }
+          }}
           disabled={testing}
+          aria-haspopup="listbox"
+          aria-expanded={showHistoryDropdown}
         >
           📜 历史记录
         </button>
         {#if showHistoryDropdown}
-          <div class="dropdown-menu" on:click|stopPropagation>
+          <div class="dropdown-menu" role="listbox" on:click|stopPropagation on:keydown={handleDropdownKeydown} tabindex="-1">
             <div class="dropdown-header">
               <span>{#if comparisonMode}对比模式 (选{comparisonRecordIds.size}/3){:else}选择记录{/if}</span>
               {#if comparisonMode}
@@ -1310,13 +1484,17 @@
             {#if savedRecords.length === 0}
               <div class="dropdown-empty">暂无保存的记录</div>
             {:else}
-              <div class="dropdown-list">
+              <div class="dropdown-list" role="listbox">
                 {#each savedRecords as record}
                   <div 
                     class="dropdown-item"
                     class:selected={selectedRecordId === record.id}
                     class:compared={comparisonRecordIds.has(record.id)}
+                    tabindex="0"
+                    role="option"
+                    aria-selected={selectedRecordId === record.id}
                     on:click={() => comparisonMode ? toggleComparisonRecord(record.id) : loadRecord(record.id)}
+                    on:keydown={(e) => handleRecordKeydown(e, record.id)}
                   >
                     <div class="record-info">
                       <span class="record-name">{record.name}</span>
@@ -1325,13 +1503,15 @@
                     <div class="record-actions">
                       {#if comparisonMode}
                         <input 
+                          id={`compare-${record.id}`}
                           type="checkbox" 
                           checked={comparisonRecordIds.has(record.id)}
                           on:change|stopPropagation={() => toggleComparisonRecord(record.id)}
                           disabled={!comparisonRecordIds.has(record.id) && comparisonRecordIds.size >= 3}
+                          aria-label={`对比 ${record.name}`}
                         />
                       {/if}
-                      <button class="delete-record-btn" on:click|stopPropagation={(e) => deleteRecord(record.id, e)}>
+                      <button class="delete-record-btn" on:click|stopPropagation={(e) => deleteRecord(record.id, e)} aria-label={`删除 ${record.name}`}>
                         🗑️
                       </button>
                     </div>
@@ -1340,8 +1520,8 @@
               </div>
             {/if}
             <div class="dropdown-footer">
-              <label class="compare-mode-toggle">
-                <input type="checkbox" bind:checked={comparisonMode} />
+              <label class="compare-mode-toggle" for="compare-mode-toggle">
+                <input id="compare-mode-toggle" type="checkbox" bind:checked={comparisonMode} />
                 <span>对比模式 (最多选3条)</span>
               </label>
             </div>
@@ -1570,7 +1750,7 @@
             ⏹ 停止测试
           </button>
         {:else}
-          <button class="start-btn" on:click={startTest} disabled={selectedAlgorithms.size === 0 || nodeSizes.length === 0}>
+          <button class="start-btn" on:click={startTest} disabled={selectedAlgorithms.size === 0 || xAxisValues.length === 0}>
             ▶️ 开始测试
           </button>
         {/if}
@@ -1586,7 +1766,7 @@
             <div class="progress-fill" style="width: {progressPercent}%"></div>
           </div>
           <div class="progress-detail">
-            当前: 节点数 {nodeSizes[progress.currentScaleIndex]}，{ALGORITHM_INFO[Array.from(selectedAlgorithms)[progress.currentAlgorithmIndex]]?.name || ''}，第 {progress.currentRepeat + 1}/{progress.totalRepeats} 次
+            当前: {progress.xAxisLabel} {formatXAxisValue(progress.xAxisValue, progress.currentParamName)}，{ALGORITHM_INFO[Array.from(selectedAlgorithms)[progress.currentAlgorithmIndex]]?.name || ''}，第 {progress.currentRepeat + 1}/{progress.totalRepeats} 次
           </div>
         </div>
       {/if}
@@ -1604,15 +1784,21 @@
             </label>
           </div>
         </div>
-        <div class="chart-container" style="position: relative;">
+        <div class="chart-container" style="position: relative;" bind:this={lineChartContainer}>
           <canvas bind:this={lineChartCanvas} on:mousemove={handleLineChartMouseMove} on:mouseleave={handleLineChartMouseLeave}></canvas>
           {#if lineTooltipData}
-            <div class="chart-tooltip" style="left: {lineTooltipData.x + 15}px; top: {lineTooltipData.y - 10}px;">
+            <div 
+              class="chart-tooltip" 
+              style="left: {adjustTooltipX(lineTooltipData.x)}px; top: {adjustTooltipY(lineTooltipData.y)}px;"
+            >
               {lineTooltipData.text}
             </div>
           {/if}
           {#if warningTooltipData}
-            <div class="chart-tooltip warning-tooltip" style="left: {warningTooltipData.x + 15}px; top: {warningTooltipData.y - 10}px;">
+            <div 
+              class="chart-tooltip warning-tooltip" 
+              style="left: {adjustTooltipX(warningTooltipData.x, true)}px; top: {adjustTooltipY(warningTooltipData.y)}px;"
+            >
               {@html warningTooltipData.text.replace(/\n/g, '<br>')}
             </div>
           {/if}
@@ -1657,27 +1843,28 @@
   </div>
 
   {#if showSaveDialog}
-    <div class="modal-overlay" on:click={() => showSaveDialog = false}>
-      <div class="modal-dialog" on:click|stopPropagation>
+    <div class="modal-overlay" on:click={closeSaveDialog} role="presentation">
+      <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="save-dialog-title" on:click|stopPropagation on:keydown={handleModalKeydown} tabindex="-1">
         <div class="modal-header">
-          <h3>保存测试结果</h3>
-          <button class="modal-close" on:click={() => showSaveDialog = false}>✕</button>
+          <h3 id="save-dialog-title">保存测试结果</h3>
+          <button class="modal-close" on:click={closeSaveDialog} aria-label="关闭">✕</button>
         </div>
         <div class="modal-body">
-          <label class="modal-label">记录名称</label>
+          <label class="modal-label" for="record-name-input">记录名称</label>
           <input 
+            id="record-name-input"
             type="text" 
             class="modal-input" 
             bind:value={saveName} 
             placeholder="例如: ER模型 p=0.1"
-            autofocus
+            aria-describedby="record-name-hint"
           />
-          <div class="modal-hint">
+          <div id="record-name-hint" class="modal-hint">
             保存内容包括：完整测试配置、所有原始数据和聚合结果
           </div>
         </div>
         <div class="modal-footer">
-          <button class="modal-btn secondary" on:click={() => showSaveDialog = false}>取消</button>
+          <button class="modal-btn secondary" on:click={closeSaveDialog}>取消</button>
           <button class="modal-btn primary" on:click={handleSaveRecord} disabled={!saveName.trim()}>保存</button>
         </div>
       </div>
@@ -2138,6 +2325,12 @@
     pointer-events: none;
     z-index: 10;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    max-width: 250px;
+    word-wrap: break-word;
+  }
+
+  .chart-container {
+    position: relative;
   }
 
   .export-section {

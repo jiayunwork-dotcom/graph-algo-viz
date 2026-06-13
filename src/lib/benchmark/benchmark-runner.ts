@@ -68,6 +68,11 @@ export interface BenchmarkProgress {
   totalRepeats: number;
   elapsedTimeMs: number;
   estimatedRemainingMs: number;
+  currentNodeCount: number;
+  currentParamValue?: number;
+  currentParamName?: ParameterName;
+  xAxisLabel: string;
+  xAxisValue: number;
 }
 
 export type BenchmarkCallback = (progress: BenchmarkProgress, partialResults: BenchmarkResult[]) => void;
@@ -185,6 +190,14 @@ export class BenchmarkRunner {
             + (config.repeatCount - ri - 1);
           const estimatedRemaining = avgTimePerOp > 0 ? avgTimePerOp * remainingOps : 0;
 
+          const isParamMode = variationMode === 'parameter';
+          const xLabel = isParamMode && scale.paramName 
+            ? getParamDisplayName(scale.paramName) 
+            : '节点数';
+          const xVal = isParamMode && scale.paramValue !== undefined
+            ? scale.paramValue
+            : scale.nodeCount;
+
           const progress: BenchmarkProgress = {
             currentScaleIndex: si,
             totalScales,
@@ -193,7 +206,12 @@ export class BenchmarkRunner {
             currentRepeat: ri,
             totalRepeats: config.repeatCount,
             elapsedTimeMs: elapsed,
-            estimatedRemainingMs: estimatedRemaining
+            estimatedRemainingMs: estimatedRemaining,
+            currentNodeCount: scale.nodeCount,
+            currentParamValue: scale.paramValue,
+            currentParamName: scale.paramName,
+            xAxisLabel: xLabel,
+            xAxisValue: xVal
           };
 
           callback(progress, [...results]);
@@ -397,6 +415,15 @@ export function deleteBenchmarkRecord(id: string): void {
 }
 
 export { estimateEdgeCount, getGraphModelName, createGraphParams, createGraphParamsWithVariation };
+
+export function getParamDisplayName(name: ParameterName): string {
+  switch (name) {
+    case 'p': return '边概率 p';
+    case 'k': return '邻居数 k';
+    case 'beta': return '重连概率 β';
+    case 'm': return '新增边数 m';
+  }
+}
 
 export function aggregateResults(results: BenchmarkResult[]): BenchmarkResult[] {
   const grouped = new Map<string, BenchmarkResult[]>();
